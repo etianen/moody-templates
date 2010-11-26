@@ -41,9 +41,34 @@ class TestRender(unittest.TestCase):
         self.assertRaises(TemplateSyntaxError, lambda: moody.compile("{% if True %}{% else %}{% else %}{% endif %}"))
         
     def testWithMacro(self):
+        # Test basic functionality.
         template1 = moody.compile("{% with test[3:] as subtest %}{{subtest}}{% endwith %}")
         self.assertEqual(template1.render(test="foobar"), "bar")
+        # Test correct scoping.
+        template2 = moody.compile("{% with test[3:] as test %}{{test}}{% endwith %}{{test}}")
+        self.assertEqual(template2.render(test="foobar"), "barfoobar")
+        # Test various syntax errors.
         self.assertRaises(TemplateSyntaxError, lambda: moody.compile("{% with True as foo %}"))
+        
+    def testNestedTags(self):
+        template1 = moody.compile("""
+            {% if test %}
+                {% with test[3:] as subtest %}
+                    {% if subtest %}
+                        {{subtest}}
+                    {% else %}
+                        snafu
+                    {% endif %}
+                {% endwith %}
+            {% else %}
+                {% with "wibble" as test %}
+                    {{test}}
+                {% endwith %}
+            {% endif %}
+        """)
+        self.assertEqual(template1.render(test="foobar").strip(), "bar")
+        self.assertEqual(template1.render(test="foo").strip(), "snafu")
+        self.assertEqual(template1.render(test="").strip(), "wibble")
         
         
 if __name__ == "__main__":
