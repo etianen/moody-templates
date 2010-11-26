@@ -15,9 +15,9 @@ class TemplateSyntaxError(TemplateError):
 
 class Context:
     
-    def __init__(self, params, buffer=None):
+    def __init__(self, params, buffer):
         self.params = params
-        self.buffer = buffer or []
+        self.buffer = buffer
     
     @contextmanager
     def block(self):
@@ -76,7 +76,7 @@ class Template:
             node.render(context)
             
     def render(self, **params):
-        context = Context(params)
+        context = Context(params, [])
         self._render_to_context(context)
         return context.read()
 
@@ -121,7 +121,7 @@ class ParserRun:
                 # Process macros.
                 node = None
                 for macro in self.macros:
-                    node = macro(self, token_contents)
+                    node = macro(self, lineno, token_contents)
                     if node:
                         nodes.append(node)
                         break
@@ -150,10 +150,10 @@ class Parser:
 def regex_macro(regex):
     regex = re.compile(regex)
     def decorator(func):
-        def wrapper(parser, token):
+        def wrapper(parser, lineno, token):
             match = regex.match(token)
             if match:
-                return func(parser, *match.groups(), **match.groupdict())
+                return func(parser, lineno, *match.groups(), **match.groupdict())
             return None
         return wrapper
     return decorator
@@ -177,12 +177,14 @@ class IfNode(Node):
 RE_IF_CLAUSE = re.compile("^(elif) (.+?)$|^(else)$|^(endif)$")
 
 @regex_macro("^if\s+(.+?)$")
-def if_macro(parser, expression):
+def if_macro(parser, lineno, expression):
     clauses = []
     else_tag = False
     else_block = None
     while True:
-        lineno, match, block = parser.parse_block(RE_IF_CLAUSE)
+        block_lineno, match, block = parser.parse_block(RE_IF_CLAUSE)
+        if not match:
+            raise TemplateSyntaxError("Line {}: {{% if %}} tag cannot find a matching {{% endif %}}.".format(lineno))
         if else_tag:
             else_block = block
         else:
@@ -190,19 +192,43 @@ def if_macro(parser, expression):
         elif_flag, elif_expression, else_flag, endif_flag = match.groups()
         if elif_flag:
             if else_tag:
-                raise TemplateSyntaxError("Line {}: {{% elif %}} tag cannot come after {{% else %}}.".format(lineno))
+                raise TemplateSyntaxError("Line {}: {{% elif %}} tag cannot come after {{% else %}}.".format(block_lineno))
             expression = elif_expression
         elif else_flag:
             if else_tag:
-                raise TemplateSyntaxError("Line {}: Only one {{% else %}} tag is allowed per {{% if %}} macro.".format(lineno))
+                raise TemplateSyntaxError("Line {}: Only one {{% else %}} tag is allowed per {{% if %}} macro.".format(block_lineno))
             else_tag = True
         elif endif_flag:
             break
                 
     return IfNode(clauses, else_block)
+
+
+class WithNode(Node):
+    
+    def __init__(self, expression, name, block):
+        self.expression = expression
+        self.name = name
+        self.block = block
+        
+    def render(self, context):
+        value = self.expression.eval(context)
+        with context.block() as sub_context:
+            sub_context.params[self.name] = value
+            self.block._render_to_context(sub_context)
+
+
+RE_ENDWITH = re.compile("^endwith$")
+    
+@regex_macro("^with\s+(.+?)\s+as\s+(.+?)$")
+def with_macro(parser, lineno, expression, name):
+    _, match, block = parser.parse_block(RE_ENDWITH)
+    if not match:
+        raise TemplateSyntaxError("Line {}: {{% with %}} tag cannot find matching {{% endwith %}}.".format(lineno))
+    return WithNode(Expression(expression), name, block)
     
         
-DEFAULT_MACROS = (if_macro,)
+DEFAULT_MACROS = (if_macro, with_macro,)
 
 
 default_parser = Parser(DEFAULT_MACROS)

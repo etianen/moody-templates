@@ -36,8 +36,14 @@ class TestRender(unittest.TestCase):
         self.assertEqual(template4.render(test="snafu"), "snafu")
         self.assertEqual(template4.render(test="wibble"), "")
         # Test various syntax errors.
+        self.assertRaises(TemplateSyntaxError, lambda: moody.compile("{% if True %}"))
         self.assertRaises(TemplateSyntaxError, lambda: moody.compile("{% if True %}{% else %}{% elif True %}{% endif %}"))
         self.assertRaises(TemplateSyntaxError, lambda: moody.compile("{% if True %}{% else %}{% else %}{% endif %}"))
+        
+    def testWithMacro(self):
+        template1 = moody.compile("{% with test[3:] as subtest %}{{subtest}}{% endwith %}")
+        self.assertEqual(template1.render(test="foobar"), "bar")
+        self.assertRaises(TemplateSyntaxError, lambda: moody.compile("{% with True as foo %}"))
         
         
 if __name__ == "__main__":
