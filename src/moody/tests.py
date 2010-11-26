@@ -67,7 +67,7 @@ class TestRender(unittest.TestCase):
                     {% if subtest %}
                         {{subtest}}
                     {% else %}
-                        snafu
+                        {% for _ in range(2) %}snafu{% endfor %}
                     {% endif %}
                 {% endwith %}
             {% else %}
@@ -77,7 +77,7 @@ class TestRender(unittest.TestCase):
             {% endif %}
         """)
         self.assertEqual(template1.render(test="foobar").strip(), "bar")
-        self.assertEqual(template1.render(test="foo").strip(), "snafu")
+        self.assertEqual(template1.render(test="foo").strip(), "snafusnafu")
         self.assertEqual(template1.render(test="").strip(), "wibble")
         
         
