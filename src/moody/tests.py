@@ -49,6 +49,16 @@ class TestRender(unittest.TestCase):
         self.assertEqual(template2.render(test="foobar"), "barfoobar")
         # Test various syntax errors.
         self.assertRaises(TemplateSyntaxError, lambda: moody.compile("{% with True as foo %}"))
+    
+    def testForMacro(self):
+        # Test basic functionality.
+        template1 = moody.compile("{% for n in range(0, 3) %}{{n}}{% endfor %}")
+        self.assertEqual(template1.render(), "012")
+        # Test correct scoping.
+        template2 = moody.compile("{% for n in range(0, 3) %}{{n}}{% endfor %}{{n}}")
+        self.assertEqual(template2.render(n="foo"), "012foo")
+        # Test various syntax errors.
+        self.assertRaises(TemplateSyntaxError, lambda: moody.compile("{% for n in range(0, 3) %}"))
         
     def testNestedTags(self):
         template1 = moody.compile("""

@@ -97,7 +97,7 @@ RE_TOKEN = re.compile("{#.+?#}|{{\s*(.*?)\s*}}|{%\s*(.*?)\s*%}")
 
 
 def tokenize(template):
-    for lineno, line in enumerate(template.splitlines(True)):
+    for lineno, line in enumerate(template.splitlines(True), 1):
         index = 0
         for match in RE_TOKEN.finditer(line):
             # Process string tokens.
@@ -247,8 +247,35 @@ def with_macro(parser, lineno, expression, name):
         raise TemplateSyntaxError("Line {}: {{% with %}} tag cannot find matching {{% endwith %}}.".format(lineno))
     return WithNode(Expression(expression), name, block)
     
+
+class ForNode(Node):
+    
+    __slots__ = ("name", "expression", "block",)
+    
+    def __init__(self, name, expression, block):
+        self.name = name
+        self.expression = expression
+        self.block = block
         
-DEFAULT_MACROS = (if_macro, with_macro,)
+    def render(self, context):
+        items = self.expression.eval(context)
+        with context.block() as sub_context:
+            for item in items:
+                sub_context.params[self.name] = item
+                self.block._render_to_context(sub_context)
+
+
+RE_ENDFOR = re.compile("^endfor$")
+
+@regex_macro("^for\s+(.+?)\s+in\s+(.+?)$")
+def for_macro(parser, lineno, name, expression):
+    _, match, block = parser.parse_block(RE_ENDFOR)
+    if not match:
+        raise TemplateSyntaxError("Line {}: {{% for %}} tag cannot find matching {{% endfor %}}.".format(lineno))
+    return ForNode(name, Expression(expression), block)
+
+
+DEFAULT_MACROS = (if_macro, with_macro, for_macro,)
 
 
 default_parser = Parser(DEFAULT_MACROS)
