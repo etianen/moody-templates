@@ -15,6 +15,8 @@ class TemplateSyntaxError(TemplateError):
 
 class Context:
     
+    __slots__ = ("params", "buffer",)
+    
     def __init__(self, params, buffer):
         self.params = params
         self.buffer = buffer
@@ -34,6 +36,8 @@ class Context:
 
 class Expression:
     
+    __slots__ = ("compiled_expression",)
+    
     def __init__(self, expression):
         self.compiled_expression = compile(expression, "<string>", "eval")
         
@@ -43,12 +47,16 @@ class Expression:
         
 class Node(metaclass=ABCMeta):
     
+    __slots__ = ()
+    
     @abstractmethod
     def render(self, context):
         pass
         
         
 class StringNode(Node):
+    
+    __slots__ = ("value",)
     
     def __init__(self, value):
         self.value = value
@@ -59,6 +67,8 @@ class StringNode(Node):
 
 class ExpressionNode(Node):
     
+    __slots__ = ("expression",)
+    
     def __init__(self, expression):
         self.expression = Expression(expression)
         
@@ -67,6 +77,8 @@ class ExpressionNode(Node):
         
         
 class Template:
+    
+    __slots__ = ("_nodes",)
     
     def __init__(self, nodes):
         self._nodes = nodes
@@ -105,7 +117,9 @@ def tokenize(template):
 
 
 class ParserRun:
-
+    
+    __slots__ = ("tokens", "macros",)
+    
     def __init__(self, template, macros):
         self.tokens = tokenize(template)
         self.macros = macros
@@ -139,6 +153,8 @@ class ParserRun:
         
 class Parser:
     
+    __slots__ = ("_macros",)
+    
     def __init__(self, macros=()):
         self._macros = macros
         
@@ -160,6 +176,8 @@ def regex_macro(regex):
 
 
 class IfNode(Node):
+    
+    __slots__ = ("clauses", "else_block",)
     
     def __init__(self, clauses, else_block):
         self.clauses = clauses
@@ -205,6 +223,8 @@ def if_macro(parser, lineno, expression):
 
 
 class WithNode(Node):
+    
+    __slots__ = ("expression", "name", "block",)
     
     def __init__(self, expression, name, block):
         self.expression = expression
