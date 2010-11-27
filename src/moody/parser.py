@@ -7,64 +7,84 @@ from contextlib import contextmanager
 
 class TemplateError(Exception):
     
-    pass
+    """An error has occured with a template."""
     
     
 class TemplateSyntaxError(TemplateError):
     
-    pass
+    """An error has been found in a template's syntax."""
 
 
 class Context:
     
-    __slots__ = ("params", "buffer",)
+    """The state of a template during render time."""
+    
+    __slots__ = ("params", "_buffer",)
     
     def __init__(self, params, buffer):
+        """Initializes the Context."""
         self.params = params
-        self.buffer = buffer
+        self._buffer = buffer
     
     @contextmanager
     def block(self):
-        sub_context = Context(self.params.copy(), self.buffer)
+        """
+        Creates a new subcontext that is scoped to a block.
+        
+        Changes to the sub-context will not affect the parent context, although
+        the buffer is shared.
+        """
+        sub_context = Context(self.params.copy(), self._buffer)
         yield sub_context
-        
+    
     def write(self, value):
-        # TODO: autoescape
-        self.buffer.append(str(value))
-        
+        """Writes the given value to the buffer."""
+        self._buffer.append(str(value))
+    
     def read(self):
-        return "".join(self.buffer)
+        """Reads the contents of the buffer as a string."""
+        return "".join(self._buffer)
 
 
 class Expression:
     
+    """A compiled template expression."""
+    
     __slots__ = ("compiled_expression",)
     
     def __init__(self, expression):
+        """Initiliazes the Expression."""
         self.compiled_expression = compile(expression, "<string>", "eval")
         
     def eval(self, context):
+        """Evaluates the expression using the given context, returning the result."""
         return eval(self.compiled_expression, {}, context.params)
         
         
 class Node(metaclass=ABCMeta):
     
+    """A node in a compiled template."""
+    
     __slots__ = ()
     
     @abstractmethod
     def render(self, context):
-        pass
+        """Renders the node using the given context."""
         
         
 class StringNode(Node):
     
+    """A node containing a static string value."""
+    
     __slots__ = ("value",)
     
     def __init__(self, value):
+        """Initializes the StringNode."""
         self.value = value
         
     def render(self, context):
-        context.buffer.append(self.value)
+        """Renders the StringNode."""
+        context._buffer.append(self.value)
 
 
 class ExpressionNode(Node):
@@ -72,24 +92,37 @@ class ExpressionNode(Node):
     __slots__ = ("expression",)
     
     def __init__(self, expression):
+        """Initializes the ExpressionNode."""
         self.expression = Expression(expression)
         
     def render(self, context):
-        context.write(self.expression.eval(context))
+        """Renders the ExpressionNode."""
+        value = str(self.expression.eval(context))
+        # Apply autoescaping.
+        autoescape = context.params.get("__autoescape__", None)
+        if autoescape:
+            value = autoescape(value)
+        # Write the value.
+        context._buffer.append(value)
         
         
 class Template:
     
+    """A compiled template."""
+    
     __slots__ = ("_nodes",)
     
     def __init__(self, nodes):
+        """Initializes the template."""
         self._nodes = nodes
         
     def _render_to_context(self, context):
+        """Renders the template to the given context."""
         for node in self._nodes:
             node.render(context)
             
     def render(self, **params):
+        """Renders the template, returning the string result."""
         context = Context(params, [])
         self._render_to_context(context)
         return context.read()
@@ -99,6 +132,7 @@ RE_TOKEN = re.compile("{#.+?#}|{{\s*(.*?)\s*}}|{%\s*(.*?)\s*%}")
 
 
 def tokenize(template):
+    """Lexes the given template, returning an iterator or token."""
     for lineno, line in enumerate(template.splitlines(True), 1):
         index = 0
         for match in RE_TOKEN.finditer(line):
@@ -120,13 +154,25 @@ def tokenize(template):
 
 class ParserRun:
     
+    """The state held by a parser during a run."""
+    
     __slots__ = ("tokens", "macros",)
     
     def __init__(self, template, macros):
+        """Initializes the ParserRun."""
         self.tokens = tokenize(template)
         self.macros = macros
         
     def parse_block(self, regex=None):
+        """
+        Parses a block of template, stopping at the first unknown macro.
+        
+        If the optional regex matches the macro, then a tuple of (lineno, match, nodes)
+        is returned. If not, then a TemplateSyntaxError is raised.
+        
+        If no unknown macro is encountered, then a tuple of (lineno, None, nodes) is
+        returned.
+        """
         nodes = []
         for lineno, token_type, token_contents in self.tokens:
             if token_type == "STRING":
@@ -155,6 +201,8 @@ class ParserRun:
         
 class Parser:
     
+    """A template parser."""
+    
     __slots__ = ("_macros",)
     
     def __init__(self, macros=()):
@@ -166,6 +214,7 @@ class Parser:
 
 
 def regex_macro(regex):
+    """A decorator that defines a macro function."""
     regex = re.compile(regex)
     def decorator(func):
         def wrapper(parser, lineno, token):
@@ -179,13 +228,17 @@ def regex_macro(regex):
 
 class IfNode(Node):
     
+    """A node that implements an 'if' expression."""
+    
     __slots__ = ("clauses", "else_block",)
     
     def __init__(self, clauses, else_block):
+        """Initializes the IfNode."""
         self.clauses = clauses
         self.else_block = else_block
         
     def render(self, context):
+        """Renders the IfNode."""
         for expression, block in self.clauses:
             if expression.eval(context):
                 block._render_to_context(context)
@@ -198,6 +251,7 @@ RE_IF_CLAUSE = re.compile("^(elif) (.+?)$|^(else)$|^(endif)$")
 
 @regex_macro("^if\s+(.+?)$")
 def if_macro(parser, lineno, expression):
+    """A macro that implements an 'if' expression."""
     clauses = []
     else_tag = False
     else_block = None
@@ -226,14 +280,18 @@ def if_macro(parser, lineno, expression):
 
 class WithNode(Node):
     
+    """A node that sets a variable in the context for a limited scope."""
+    
     __slots__ = ("expression", "name", "block",)
     
     def __init__(self, expression, name, block):
+        """Initializes the WithNode."""
         self.expression = expression
         self.name = name
         self.block = block
         
     def render(self, context):
+        """Renders the WithNode."""
         value = self.expression.eval(context)
         with context.block() as sub_context:
             sub_context.params[self.name] = value
@@ -244,6 +302,7 @@ RE_ENDWITH = re.compile("^endwith$")
     
 @regex_macro("^with\s+(.+?)\s+as\s+(.+?)$")
 def with_macro(parser, lineno, expression, name):
+    """A macro that implements a 'with' expression."""
     _, match, block = parser.parse_block(RE_ENDWITH)
     if not match:
         raise TemplateSyntaxError("Line {}: {{% with %}} tag cannot find matching {{% endwith %}}.".format(lineno))
@@ -252,14 +311,18 @@ def with_macro(parser, lineno, expression, name):
 
 class ForNode(Node):
     
+    """A node that implements a 'for' loop."""
+    
     __slots__ = ("name", "expression", "block",)
     
     def __init__(self, name, expression, block):
+        """Initializes the ForNode."""
         self.name = name
         self.expression = expression
         self.block = block
         
     def render(self, context):
+        """Renders the ForNode."""
         items = self.expression.eval(context)
         with context.block() as sub_context:
             for item in items:
@@ -271,13 +334,16 @@ RE_ENDFOR = re.compile("^endfor$")
 
 @regex_macro("^for\s+(.+?)\s+in\s+(.+?)$")
 def for_macro(parser, lineno, name, expression):
+    """A macro that implements a 'for' loop."""
     _, match, block = parser.parse_block(RE_ENDFOR)
     if not match:
         raise TemplateSyntaxError("Line {}: {{% for %}} tag cannot find matching {{% endfor %}}.".format(lineno))
     return ForNode(name, Expression(expression), block)
 
 
+# The set of default macros.
 DEFAULT_MACROS = (if_macro, with_macro, for_macro,)
 
 
+# The default parser, using the default set of macros.
 default_parser = Parser(DEFAULT_MACROS)
