@@ -1,3 +1,5 @@
+"""The main template parser."""
+
 import re
 from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
