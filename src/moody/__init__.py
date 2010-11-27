@@ -6,7 +6,7 @@ Fast and extensible. It gets the job done.
 Developed by Dave Hall <dave@etianen.com>.
 """
 
-from moody.parser import default_parser
+from moody.parser import default_parser, TemplateError
 
 
 compile = default_parser.compile
@@ -22,4 +22,4 @@ def render(template, **params):
     
     
 # TODO: template loading
-# TODO: template error reporting
+# TODO: template error reporting (filename, lineno)

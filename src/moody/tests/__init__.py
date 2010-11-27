@@ -2,6 +2,7 @@ import unittest
 
 import moody
 from moody.parser import TemplateSyntaxError
+from moody.loader import default_loader, TemplateDoesNotExist
 
 
 class TestRender(unittest.TestCase):
@@ -89,6 +90,27 @@ class TestRender(unittest.TestCase):
         template1 = moody.compile("{{test}}", default_params={"test": "foo"})
         self.assertEqual(template1.render(), "foo")
         self.assertEqual(template1.render(test="bar"), "bar")
+        
+        
+class TestLoader(unittest.TestCase):
+    
+    def testLoad(self):
+        cache_size = len(default_loader._template_cache)
+        self.assertIn("Dave <dave@etianen.com>", default_loader.render("moody/tests/template.txt", name="Dave", email="<dave@etianen.com>"))
+        self.assertGreater(len(default_loader._template_cache), cache_size)
+        # Test that caching is loading.
+        cache_size = len(default_loader._template_cache)
+        self.assertIn("Dave <dave@etianen.com>", default_loader.render("moody/tests/template.txt", name="Dave", email="<dave@etianen.com>"))
+        self.assertEqual(len(default_loader._template_cache), cache_size)
+        
+    def testAutoescape(self):
+        self.assertIn("Dave &lt;dave@etianen.com&gt;", default_loader.render("moody/tests/template.html", name="Dave", email="<dave@etianen.com>"))
+    
+    def testNameStacking(self):
+        self.assertIn("Dave &lt;dave@etianen.com&gt;", default_loader.render("moody/tests/dummy.html", "moody/tests/template.html", name="Dave", email="<dave@etianen.com>"))
+    
+    def testTemplateDoesNotExist(self):
+        self.assertRaises(TemplateDoesNotExist, lambda: default_loader.load("moody/tests/dummy.html"))
         
         
 if __name__ == "__main__":
