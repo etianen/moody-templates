@@ -8,3 +8,5 @@
 .bzrignore
 Thumbs.db
 src/django_reversion.egg-info/
+*.egg
+*.tar.gz
