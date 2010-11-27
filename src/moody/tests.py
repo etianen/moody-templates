@@ -80,6 +80,11 @@ class TestRender(unittest.TestCase):
         self.assertEqual(template1.render(test="foo").strip(), "snafusnafu")
         self.assertEqual(template1.render(test="").strip(), "wibble")
         
+    def testAutoEscape(self):
+        template1 = moody.compile("{{'foo'}}")
+        self.assertEqual(template1.render(), "foo")
+        self.assertEqual(template1.render(__autoescape__=lambda v: "bar"), "bar")
+        
         
 if __name__ == "__main__":
     unittest.main()
