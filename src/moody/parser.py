@@ -104,26 +104,43 @@ class ExpressionNode(Node):
             value = autoescape(value)
         # Write the value.
         context._buffer.append(value)
-        
-        
-class Template:
+
+
+class TemplateFragment:
     
-    """A compiled template."""
+    """A fragment of a template."""
     
     __slots__ = ("_nodes",)
     
     def __init__(self, nodes):
-        """Initializes the template."""
+        """Initializes the TemplateFragment."""
         self._nodes = nodes
         
     def _render_to_context(self, context):
         """Renders the template to the given context."""
         for node in self._nodes:
             node.render(context)
+        
+        
+class Template(TemplateFragment):
+    
+    """A compiled template."""
+    
+    __slots__ = ("_nodes", "_default_params",)
+    
+    def __init__(self, nodes, default_params):
+        """Initializes the template."""
+        super(Template, self).__init__(nodes)
+        self._default_params = default_params
             
     def render(self, **params):
         """Renders the template, returning the string result."""
+        # Create the params.
+        default_params = self._default_params.copy()
+        default_params.update(params)
+        # Create the context.
         context = Context(params, [])
+        # Render the template.
         self._render_to_context(context)
         return context.read()
 
@@ -162,16 +179,13 @@ class ParserRun:
         """Initializes the ParserRun."""
         self.tokens = tokenize(template)
         self.macros = macros
-        
-    def parse_block(self, regex=None):
+    
+    def parse_template_chunk(self):
         """
-        Parses a block of template, stopping at the first unknown macro.
+        Parses as many nodes as possible until an unknown block is reached.
         
-        If the optional regex matches the macro, then a tuple of (lineno, match, nodes)
-        is returned. If not, then a TemplateSyntaxError is raised.
-        
-        If no unknown macro is encountered, then a tuple of (lineno, None, nodes) is
-        returned.
+        Returns a tuple of (lineno, macro_token, nodes). If no unknown macro
+        token was found, macro_token will be None.
         """
         nodes = []
         for lineno, token_type, token_contents in self.tokens:
@@ -188,15 +202,29 @@ class ParserRun:
                         nodes.append(node)
                         break
                 if not node:
-                    if regex:
-                        match = regex.match(token_contents)
-                        if match:
-                            return lineno, match, Template(nodes)
-                    raise TemplateSyntaxError("Line {lineno}: {{% {token} %}} is not a recognized tag.".format(lineno=lineno, token=token_contents))
+                    return lineno, token_contents, nodes
             else:
                 assert False, "{!r} is not a valid token type.".format(token_type)
         # No match.
-        return lineno, None, Template(nodes)
+        return lineno, None, nodes
+        
+    def parse_block(self, start_tag, end_tag, regex):
+        """
+        Parses a block of template, looking for a macro token that matches the
+        given regex.
+        
+        If a match is found, then a tuple of (lineno, match, template_fragment) is
+        returned. A TemplateSyntaxError is raised.
+        """
+        lineno, token_contents, nodes = self.parse_template_chunk()
+        if not token_contents:
+            raise TemplateSyntaxError("Line {lineno}: {{% {start} %}} tag could not find a corresponding {{% {end} }}.".format(lineno=lineno, start=start_tag, end=end_tag))
+        # Attempt to match.
+        match = regex.match(token_contents)
+        if match:
+            return lineno, match, TemplateFragment(nodes)
+        # No match, so raise syntax error.
+        raise TemplateSyntaxError("Line {lineno}: {{% {token} %}} is not a recognized tag.".format(lineno=lineno, token=token_contents))
             
         
 class Parser:
@@ -209,14 +237,18 @@ class Parser:
         """Initializes the Parser."""
         self._macros = macros
         
-    def compile(self, template, extra_macros=()):
+    def compile(self, template, default_params=None, extra_macros=()):
         """Compiles the template."""
         # Get the list of macros.
         macros = list(self._macros)
         macros.extend(extra_macros)
+        # Get the default params.
+        default_params = default_params or {}
         # Render the main block.
-        _, _, block = ParserRun(template, list(self._macros)).parse_block()
-        return block
+        lineno, token_contents, nodes = ParserRun(template, macros).parse_template_chunk()
+        if token_contents:
+            raise TemplateSyntaxError("Line {lineno}: {{% {token} %}} is not a recognized tag.".format(lineno=lineno, token=token_contents))
+        return Template(nodes, default_params)
 
 
 def regex_macro(regex):
@@ -262,9 +294,7 @@ def if_macro(parser, lineno, expression):
     else_tag = False
     else_block = None
     while True:
-        block_lineno, match, block = parser.parse_block(RE_IF_CLAUSE)
-        if not match:
-            raise TemplateSyntaxError("Line {}: {{% if %}} tag cannot find a matching {{% endif %}}.".format(lineno))
+        block_lineno, match, block = parser.parse_block("if", "endif", RE_IF_CLAUSE)
         if else_tag:
             else_block = block
         else:
@@ -309,9 +339,7 @@ RE_ENDWITH = re.compile("^endwith$")
 @regex_macro("^with\s+(.+?)\s+as\s+(.+?)$")
 def with_macro(parser, lineno, expression, name):
     """A macro that implements a 'with' expression."""
-    _, match, block = parser.parse_block(RE_ENDWITH)
-    if not match:
-        raise TemplateSyntaxError("Line {}: {{% with %}} tag cannot find matching {{% endwith %}}.".format(lineno))
+    _, match, block = parser.parse_block("with", "endwith", RE_ENDWITH)
     return WithNode(Expression(expression), name, block)
     
 
@@ -341,9 +369,7 @@ RE_ENDFOR = re.compile("^endfor$")
 @regex_macro("^for\s+(.+?)\s+in\s+(.+?)$")
 def for_macro(parser, lineno, name, expression):
     """A macro that implements a 'for' loop."""
-    _, match, block = parser.parse_block(RE_ENDFOR)
-    if not match:
-        raise TemplateSyntaxError("Line {}: {{% for %}} tag cannot find matching {{% endfor %}}.".format(lineno))
+    _, match, block = parser.parse_block("for", "endfor", RE_ENDFOR)
     return ForNode(name, Expression(expression), block)
 
 
