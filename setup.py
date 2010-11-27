@@ -7,7 +7,7 @@ from setuptools import setup, find_packages
 
 
 setup(
-    name="django-reversion",
+    name="Moody Templates",
     version="1.0",
     description="",
     author="Dave Hall",
