@@ -206,9 +206,15 @@ class Parser:
     __slots__ = ("_macros",)
     
     def __init__(self, macros=()):
+        """Initializes the Parser."""
         self._macros = macros
         
-    def compile(self, template):
+    def compile(self, template, extra_macros=()):
+        """Compiles the template."""
+        # Get the list of macros.
+        macros = list(self._macros)
+        macros.extend(extra_macros)
+        # Render the main block.
         _, _, block = ParserRun(template, list(self._macros)).parse_block()
         return block
 
