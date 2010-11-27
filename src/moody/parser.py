@@ -37,10 +37,6 @@ class Context:
         sub_context = Context(self.params.copy(), self._buffer)
         yield sub_context
     
-    def write(self, value):
-        """Writes the given value to the buffer."""
-        self._buffer.append(str(value))
-    
     def read(self):
         """Reads the contents of the buffer as a string."""
         return "".join(self._buffer)
@@ -136,10 +132,10 @@ class Template(TemplateFragment):
     def render(self, **params):
         """Renders the template, returning the string result."""
         # Create the params.
-        default_params = self._default_params.copy()
-        default_params.update(params)
+        context_params = self._default_params.copy()
+        context_params.update(params)
         # Create the context.
-        context = Context(params, [])
+        context = Context(context_params, [])
         # Render the template.
         self._render_to_context(context)
         return context.read()

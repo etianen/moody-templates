@@ -85,6 +85,11 @@ class TestRender(unittest.TestCase):
         self.assertEqual(template1.render(), "foo")
         self.assertEqual(template1.render(__autoescape__=lambda v: "bar"), "bar")
         
+    def testDefaultParams(self):
+        template1 = moody.compile("{{test}}", default_params={"test": "foo"})
+        self.assertEqual(template1.render(), "foo")
+        self.assertEqual(template1.render(test="bar"), "bar")
+        
         
 if __name__ == "__main__":
     unittest.main()
