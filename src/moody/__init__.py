@@ -21,6 +21,5 @@ def render(template, **params):
     return compile(template).render(**params)
     
     
-# TODO: autoescaping
 # TODO: template loading
 # TODO: template error reporting
