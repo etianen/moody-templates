@@ -20,6 +20,6 @@ def render(template, **params):
     """
     return compile(template).render(**params)
     
-    
-# TODO: template loading
+
+# TODO: template inheritance.
 # TODO: template error reporting (filename, lineno)
