@@ -117,6 +117,11 @@ class TestLoader(unittest.TestCase):
         
     def testIncludeTag(self):
         self.assertEqual(default_loader.render("moody/tests/template.txt", name="Dave", email="<dave@etianen.com>"), default_loader.render("moody/tests/include.txt", name="Dave", email="<dave@etianen.com>"))
+    
+    def testInheritance(self):
+        self.assertEqual(default_loader.render("moody/tests/parent.txt"), "Hello world")
+        self.assertEqual(default_loader.render("moody/tests/child.txt"), "Hello Dave Hall")
+        self.assertEqual(default_loader.render("moody/tests/grandchild.txt"), "Hello Dave Foo")
         
         
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 """A caching template loader that allows disk-based templates to be used."""
 
 
-import os, sys
+import os, sys, re
 from xml.sax.saxutils import escape
 
 from moody.parser import default_parser, TemplateError, regex_macro, Node, Expression
@@ -98,7 +98,8 @@ class IncludeNode(Node):
         template_name = self.expression.eval(context)
         loader = context.params["__loader__"]
         template = loader.load(template_name)
-        template._render_to_context(context)
+        with context.block() as sub_context:
+            template._render_to_context(sub_context)
 
 
 @regex_macro("^include\s+(.+?)$")
@@ -107,7 +108,74 @@ def include_macro(parser, lineno, expression):
     return IncludeNode(Expression(expression))
 
 
-DEFAULT_LOADER_MACROS = (include_macro,)
+class BlockNode(Node):
+    
+    """A block of inheritable content."""
+    
+    __slots__ = ("name", "block",)
+    
+    def __init__(self, name, block):
+        """Initializes the BlockNode."""
+        self.name = name
+        self.block = block
+        
+    def render(self, context):
+        """Renders the BlockNode."""
+        # Add my block to the stack.
+        stack = context.params.get("__blocks__", {}).get(self.name, [])
+        stack.append(self.block)
+        # Render the bottommost block.
+        with context.block() as sub_context:
+            stack[0]._render_to_context(sub_context)
+
+
+@regex_macro("^block\s+(.+?)$")
+def block_macro(parser, lineno, name):
+    """Macro that implements an inheritable template block."""
+    _, match, block = parser.parse_block("block", "endblock", re.compile("^endblock$|^endblock\s+{}$".format(name)))
+    return BlockNode(name, block)
+    
+    
+class ExtendsNode(Node):
+    
+    """Implements a inherited child template."""
+    
+    __slots__ = ("expression", "block_nodes",)
+    
+    def __init__(self, expression, block_nodes):
+        """Initializes the ExtendsNode."""
+        self.expression = expression
+        self.block_nodes = block_nodes
+        
+    def render(self, context):
+        """Renders the ExtendsNode."""
+        # Get the parent.
+        template_name = self.expression.eval(context)
+        loader = context.params["__loader__"]
+        template = loader.load(template_name)
+        # Get the block information.
+        block_info = context.params.setdefault("__blocks__", {})
+        for block_node in self.block_nodes:
+            block_info.setdefault(block_node.name, []).append(block_node.block)
+        # Render the parent template with my blocks.
+        with context.block() as sub_context:
+            template._render_to_context(sub_context)
+    
+    
+@regex_macro("^extends\s+(.+?)$")
+def extends_macro(parser, lineno, expression):
+    """Macro that implements an inherited child template."""
+    # Parse the rest of the template.
+    lineno, token_contents, nodes = parser.parse_template_chunk()
+    if token_contents:
+        raise TemplateSyntaxError("Line {lineno}: {{% {token} %}} is not a recognized tag.".format(lineno=lineno, token=token_contents))
+    # Go through the nodes, looking for all block tags.
+    block_nodes = [node for node in nodes if isinstance(node, BlockNode)]
+    return ExtendsNode(Expression(expression), block_nodes)
+    
+
+# Default additional macros available to a template loader.    
+DEFAULT_LOADER_MACROS = (include_macro, block_macro, extends_macro,)
         
 
 # The default template loader, which loads templates from the pythonpath.

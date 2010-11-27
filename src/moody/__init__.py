@@ -21,5 +21,5 @@ def render(template, **params):
     return compile(template).render(**params)
     
 
-# TODO: template inheritance.
 # TODO: template error reporting (filename, lineno)
+# TODO: alternative loader sources, such as memory.

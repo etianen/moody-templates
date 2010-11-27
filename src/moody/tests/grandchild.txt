@@ -1,0 +1,3 @@
+{% extends "moody/tests/child.txt" %}
+
+{% block surname %}Foo{% endblock %}
