@@ -94,6 +94,9 @@ class TestRender(unittest.TestCase):
         
 class TestLoader(unittest.TestCase):
     
+    def setUp(self):
+        default_loader._template_cache.clear()
+    
     def testLoad(self):
         cache_size = len(default_loader._template_cache)
         self.assertIn("Dave <dave@etianen.com>", default_loader.render("moody/tests/template.txt", name="Dave", email="<dave@etianen.com>"))
@@ -111,6 +114,9 @@ class TestLoader(unittest.TestCase):
     
     def testTemplateDoesNotExist(self):
         self.assertRaises(TemplateDoesNotExist, lambda: default_loader.load("moody/tests/dummy.html"))
+        
+    def testIncludeTag(self):
+        self.assertEqual(default_loader.render("moody/tests/template.txt", name="Dave", email="<dave@etianen.com>"), default_loader.render("moody/tests/include.txt", name="Dave", email="<dave@etianen.com>"))
         
         
 if __name__ == "__main__":
