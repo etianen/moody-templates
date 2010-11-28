@@ -7,6 +7,7 @@ Developed by Dave Hall <dave@etianen.com>.
 """
 
 from moody.parser import default_parser, TemplateError
+from moody.loader import default_loader
 
 
 compile = default_parser.compile

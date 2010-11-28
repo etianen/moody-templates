@@ -2,7 +2,7 @@ import unittest
 
 import moody
 from moody.parser import TemplateCompileError, TemplateRenderError
-from moody.loader import default_loader, Loader, TemplateDoesNotExist, MemorySource, CachedLoader
+from moody.loader import default_loader, Loader, TemplateDoesNotExist, MemorySource
 
 
 class TestRender(unittest.TestCase):
@@ -80,55 +80,52 @@ class TestRender(unittest.TestCase):
         self.assertEqual(template1.render(test="bar"), "bar")
 
 
-test_sources = (MemorySource({
-    "simple.txt": "{{test}}",
-}), MemorySource({
-    "simple.html": "{{test}}",
-    "include.txt": "{% include 'simple.txt' %}",
-    "parent.txt": "Hello {% block name %}world{% endblock %}",
-    "child.txt": "{% extends 'parent.txt' %}{% block name %}Dave {% block surname %}Hall{% endblock %}{% endblock %}",
-    "grandchild.txt": "{% extends 'child.txt' %}{% block surname %}Foo{% endblock surname %}",
-}))
+test_loader = Loader((
+    MemorySource({
+        "simple.txt": "{{test}}",
+    }), MemorySource({
+        "simple.html": "{{test}}",
+        "include.txt": "{% include 'simple.txt' %}",
+        "parent.txt": "Hello {% block name %}world{% endblock %}",
+        "child.txt": "{% extends 'parent.txt' %}{% block name %}Dave {% block surname %}Hall{% endblock %}{% endblock %}",
+        "grandchild.txt": "{% extends 'child.txt' %}{% block surname %}Foo{% endblock surname %}",
+    })
+))
 
 
 class TestLoader(unittest.TestCase):
     
-    loader = Loader(test_sources)
+    def setUp(self):
+        test_loader.clear_cache()
     
     def testLoad(self):
-        self.assertTrue(self.loader.load("simple.txt"))
+        self.assertTrue(test_loader.load("simple.txt"))
         
     def testAutoescape(self):
-        self.assertEqual(self.loader.render("simple.txt", test="<Hello world>"), "<Hello world>")
-        self.assertEqual(self.loader.render("simple.html", test="<Hello world>"), "&lt;Hello world&gt;")
+        self.assertEqual(test_loader.render("simple.txt", test="<Hello world>"), "<Hello world>")
+        self.assertEqual(test_loader.render("simple.html", test="<Hello world>"), "&lt;Hello world&gt;")
         
     def testNameStacking(self):
-        self.assertEqual(self.loader.render("missing.txt", "simple.txt", test="foo"), "foo")
+        self.assertEqual(test_loader.render("missing.txt", "simple.txt", test="foo"), "foo")
         
     def testTemplateDoesNotExist(self):
         self.assertRaises(TemplateDoesNotExist, lambda: default_loader.load("missing.txt"))
         
     def testIncludeTag(self):
-        self.assertEqual(self.loader.render("include.txt", test="foo"), self.loader.render("simple.txt", test="foo"))
+        self.assertEqual(test_loader.render("include.txt", test="foo"), test_loader.render("simple.txt", test="foo"))
         
     def testInheritance(self):
-        self.assertEqual(self.loader.render("parent.txt"), "Hello world")
-        self.assertEqual(self.loader.render("child.txt"), "Hello Dave Hall")
-        self.assertEqual(self.loader.render("grandchild.txt"), "Hello Dave Foo")
-
-
-class TestCachedLoader(TestLoader):
-    
-    def setUp(self):
-        self.loader = CachedLoader(test_sources)
+        self.assertEqual(test_loader.render("parent.txt"), "Hello world")
+        self.assertEqual(test_loader.render("child.txt"), "Hello Dave Hall")
+        self.assertEqual(test_loader.render("grandchild.txt"), "Hello Dave Foo")
         
     def testCache(self):
-        self.assertEqual(len(self.loader._cache), 0)
-        self.loader.load("simple.txt")
-        self.assertEqual(len(self.loader._cache), 1)
-        self.loader.load("simple.txt")
-        self.assertEqual(len(self.loader._cache), 1)
-        
+        self.assertEqual(len(test_loader._cache), 0)
+        test_loader.load("simple.txt")
+        self.assertEqual(len(test_loader._cache), 1)
+        test_loader.load("simple.txt")
+        self.assertEqual(len(test_loader._cache), 1)
+
         
 class TestDirectorySource(unittest.TestCase):
     
