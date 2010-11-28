@@ -52,6 +52,19 @@ class TestRender(unittest.TestCase):
         self.assertEqual(template2.render(value=[["foo", "bar"]]), "foobar")
         self.assertRaises(TemplateRenderError, lambda: template2.render(value=[["foo"]]))
         self.assertRaises(TemplateRenderError, lambda: template2.render(value=[["foo", "bar", "foobar"]]))
+    
+    def testIncludeMacro(self):
+        template1 = moody.compile("Foo")
+        template2 = moody.compile("{% include inner %}")
+        self.assertEqual(template1.render(), template2.render(inner=template1))
+        
+    def testInheritance(self):
+        parent_template = moody.compile("Hello {% block name %}world{% endblock %}")
+        child_template = moody.compile("{% extends parent %}{% block name %}Dave {% block surname %}Hall{% endblock %}{% endblock %}")
+        grandchild_template = moody.compile("{% extends child %}{% block surname %}Foo{% endblock %}")
+        self.assertEqual(parent_template.render(), "Hello world")
+        self.assertEqual(child_template.render(parent=parent_template), "Hello Dave Hall")
+        self.assertEqual(grandchild_template.render(parent=parent_template, child=child_template), "Hello Dave Foo")
         
     def testNestedTags(self):
         template1 = moody.compile("""

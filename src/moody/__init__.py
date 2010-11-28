@@ -46,9 +46,6 @@ def make_loader(*sources, loader_cls=Loader, parser=default_parser, **kwargs):
 default_loader = make_loader(*sys.path)
     
 
-# TODO: allow inheritance without loader
-# TODO: allow include without loader
-# TODO: inherit from self
 # TODO: render block.super
 # TODO: set node (then use to test name expansion properly)
 # TODO: import node (two types)
