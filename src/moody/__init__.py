@@ -21,7 +21,6 @@ def render(template, **params):
     return compile(template).render(**params)
     
 
-# TODO: use compiled regex for end block.
 # TODO: inherit from self
 # TODO: set node (then use to test name expansion properly)
 # TODO: import node (two types)
