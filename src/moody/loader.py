@@ -4,7 +4,7 @@
 import os, sys, re
 from xml.sax.saxutils import escape
 
-from moody.parser import default_parser, TemplateSyntaxError, regex_macro, Node, Expression
+from moody.parser import default_parser, regex_macro, Node, Expression
 
 
 class TemplateDoesNotExist(Exception):
@@ -166,9 +166,7 @@ class ExtendsNode(Node):
 def extends_macro(parser, expression):
     """Macro that implements an inherited child template."""
     # Parse the rest of the template.
-    _, token_contents, nodes = parser.parse_template_chunk()
-    if token_contents:
-        raise TemplateSyntaxError("{{% {} %}} is not a recognized tag.".format(token_contents))
+    nodes = parser.parse_all_nodes()
     # Go through the nodes, looking for all block tags.
     block_nodes = [node for node in nodes if isinstance(node, BlockNode)]
     return ExtendsNode(Expression(expression), block_nodes)

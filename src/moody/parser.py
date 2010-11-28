@@ -4,11 +4,6 @@ import re
 from collections import Sequence
 from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
-
-
-class TemplateSyntaxError(Exception):
-    
-    """An error has occured with a template's syntax."""
     
     
 class TemplateError(Exception):
@@ -24,7 +19,17 @@ class TemplateError(Exception):
     def __str__(self):
         """Returns a string representation."""
         message = super(TemplateError, self).__str__()
-        return "{} [{} on line {}]".format(message, self.template_name, self.template_lineno)
+        return "{} [From {} on line {}]".format(message, self.template_name, self.template_lineno)
+        
+        
+class TemplateCompileError(TemplateError):
+    
+    """Something went wrong while compiling a template."""
+    
+    
+class TemplateRenderError(TemplateError):
+    
+    """Something went wront while rendering a template."""
 
 
 class Context:
@@ -175,10 +180,10 @@ class TemplateFragment:
         for node in self._nodes:
             try:
                 node.render(context)
-            except TemplateError:
+            except TemplateRenderError:
                 raise
             except Exception as ex:
-                raise TemplateError(str(ex), self._name, node.lineno)
+                raise TemplateRenderError(str(ex), self._name, node.lineno)
         
         
 class Template(TemplateFragment):
@@ -241,16 +246,20 @@ class ParserRun:
         self.name = name
         self.macros = macros
     
-    def parse_template_chunk(self):
+    def parse_template_chunk(self, end_chunk_handler):
         """
         Parses as many nodes as possible until an unknown block is reached.
+        Returns the result of the end_chunk_handler.
         
-        Returns a tuple of (lineno, macro_token, nodes). If no unknown macro
-        token was found, macro_token will be None.
+        The chunk is ended when there is no more template to parse, or an unknown
+        macro is encountered. Once this occurs, the end_chunk_handler is called
+        with macro_name and nodes as positional arguments. The end_chunk handler
+        must then process the nodes and return a result.
         """
         nodes = []
-        for lineno, token_type, token_contents in self.tokens:
-            try:
+        try:
+            for lineno, token_type, token_contents in self.tokens:
+
                 if token_type == "STRING":
                     node = StringNode(token_contents)
                 elif token_type == "EXPRESSION":
@@ -263,18 +272,26 @@ class ParserRun:
                         if node:
                             break
                     if not node:
-                        return lineno, token_contents, nodes
+                        return end_chunk_handler(token_contents, nodes)
                 else:
                     assert False, "{!r} is not a valid token type.".format(token_type)
                 # Set the node line number.
                 node.lineno = lineno
                 nodes.append(node)
-            except TemplateError:
-                raise
-            except Exception as ex:
-                raise TemplateError(str(ex), self.name, lineno)
-        # No match.
-        return lineno, None, nodes
+            # No unknown macro.
+            return end_chunk_handler(None, nodes)
+        except TemplateCompileError:
+            raise
+        except Exception as ex:
+            raise TemplateCompileError(str(ex), self.name, lineno)
+        
+    def parse_all_nodes(self):
+        """Parses all remaining nodes."""
+        def end_chunk_handler(token_contents, nodes):
+            if token_contents:
+                raise SyntaxError("{{% {} %}} is not a recognized tag.".format(token_contents))
+            return nodes
+        return self.parse_template_chunk(end_chunk_handler)
         
     def parse_block(self, start_tag, end_tag, regex):
         """
@@ -282,18 +299,17 @@ class ParserRun:
         given regex.
         
         If a match is found, then a tuple of (match, template_fragment) is
-        returned. A TemplateSyntaxError is raised.
+        returned. A SyntaxError is raised.
         """
-        lineno, token_contents, nodes = self.parse_template_chunk()
-        # TODO: This needs errors to be caught.
-        if not token_contents:
-            raise TemplateSyntaxError("{{% {} %}} tag could not find a corresponding {{% {} }}.".format(start_tag, end_tag))
-        # Attempt to match.
-        match = regex.match(token_contents)
-        if match:
+        def end_chunk_handler(token_contents, nodes):
+            if not token_contents:
+                raise SyntaxError("{% {} %} tag could not find a corresponding {% {} %}.".format(start_tag, end_tag))
+            # Attempt to match.
+            match = regex.match(token_contents)
+            if not match:
+                raise SyntaxError("{{% {} %}} is not a recognized tag.".format(token_contents))
             return match, TemplateFragment(nodes, self.name)
-        # No match, so raise syntax error.
-        raise TemplateSyntaxError("{{% {} %}} is not a recognized tag.".format(token=token_contents))
+        return self.parse_template_chunk(end_chunk_handler)
             
         
 class Parser:
@@ -314,9 +330,7 @@ class Parser:
         # Get the default params.
         default_params = default_params or {}
         # Render the main block.
-        lineno, token_contents, nodes = ParserRun(template, name, macros).parse_template_chunk()
-        if token_contents:
-            raise TemplateSyntaxError("{{% {} %}} is not a recognized tag.".format(token_contents))
+        nodes = ParserRun(template, name, macros).parse_all_nodes()
         return Template(nodes, name, default_params)
 
 
@@ -371,11 +385,11 @@ def if_macro(parser, expression):
         elif_flag, elif_expression, else_flag, endif_flag = match.groups()
         if elif_flag:
             if else_tag:
-                raise TemplateSyntaxError("{{% elif %}} tag cannot come after {{% else %}}.")
+                raise SyntaxError("{{% elif %}} tag cannot come after {{% else %}}.")
             expression = elif_expression
         elif else_flag:
             if else_tag:
-                raise TemplateSyntaxError("Only one {{% else %}} tag is allowed per {{% if %}} macro.")
+                raise SyntaxError("Only one {{% else %}} tag is allowed per {{% if %}} macro.")
             else_tag = True
         elif endif_flag:
             break
