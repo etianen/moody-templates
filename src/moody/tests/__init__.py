@@ -45,9 +45,6 @@ class TestRender(unittest.TestCase):
         # Test basic functionality.
         template1 = moody.compile("{% for n in range(0, 3) %}{{n}}{% endfor %}")
         self.assertEqual(template1.render(), "012")
-        # Test correct scoping.
-        template2 = moody.compile("{% for n in range(0, 3) %}{{n}}{% endfor %}{{n}}")
-        self.assertEqual(template2.render(n="foo"), "012foo")
         # Test various syntax errors.
         self.assertRaises(TemplateSyntaxError, lambda: moody.compile("{% for n in range(0, 3) %}"))
         # Test variable expansion.

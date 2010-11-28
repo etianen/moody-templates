@@ -68,14 +68,14 @@ class Name:
             if not RE_NAME.match(name):
                 raise TemplateSyntaxError("Line {}: {!r} is not a valid variable name. Only letters, numbers and undescores are allowed.".format(lineno, name))
 
-    def set(self, params, value):
-        """Sets the value in the params under this name."""
+    def set(self, context, value):
+        """Sets the value in the context under this name."""
         if self.is_expandable:
             # Handle variable expansion.
             value = iter(value)
             for name_part in self.names:
                 try:
-                    params[name_part] = next(value)
+                    context.params[name_part] = next(value)
                 except StopIteration:
                     raise ValueError("Line {}: Not enough values to unpack.".format(self.lineno))
             # Make sure there are no more values.
@@ -86,7 +86,7 @@ class Name:
             else:
                 raise ValueError("Line {}: Need more that {} values to unpack.".format(self.lineno, len(self.names)))
         else:
-            params[self.names[0]] = value
+            context.params[self.names[0]] = value
 
 
 class Expression:
@@ -371,10 +371,9 @@ class ForNode(Node):
     def render(self, context):
         """Renders the ForNode."""
         items = self.expression.eval(context)
-        with context.block() as sub_context:
-            for item in items:
-                self.name.set(sub_context.params, item)
-                self.block._render_to_context(sub_context)
+        for item in items:
+            self.name.set(context, item)
+            self.block._render_to_context(context)
 
 
 RE_ENDFOR = re.compile("^endfor$")
