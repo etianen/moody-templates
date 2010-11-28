@@ -40,16 +40,6 @@ class TestRender(unittest.TestCase):
         self.assertRaises(TemplateSyntaxError, lambda: moody.compile("{% if True %}"))
         self.assertRaises(TemplateSyntaxError, lambda: moody.compile("{% if True %}{% else %}{% elif True %}{% endif %}"))
         self.assertRaises(TemplateSyntaxError, lambda: moody.compile("{% if True %}{% else %}{% else %}{% endif %}"))
-        
-    def testWithMacro(self):
-        # Test basic functionality.
-        template1 = moody.compile("{% with test[3:] as subtest %}{{subtest}}{% endwith %}")
-        self.assertEqual(template1.render(test="foobar"), "bar")
-        # Test correct scoping.
-        template2 = moody.compile("{% with test[3:] as test %}{{test}}{% endwith %}{{test}}")
-        self.assertEqual(template2.render(test="foobar"), "barfoobar")
-        # Test various syntax errors.
-        self.assertRaises(TemplateSyntaxError, lambda: moody.compile("{% with True as foo %}"))
     
     def testForMacro(self):
         # Test basic functionality.
@@ -63,23 +53,19 @@ class TestRender(unittest.TestCase):
         
     def testNestedTags(self):
         template1 = moody.compile("""
-            {% if test %}
-                {% with test[3:] as subtest %}
-                    {% if subtest %}
-                        {{subtest}}
-                    {% else %}
-                        {% for _ in range(2) %}snafu{% endfor %}
-                    {% endif %}
-                {% endwith %}
-            {% else %}
-                {% with "wibble" as test %}
+            {% if test.startswith("foo") %}
+                {% if test == "foobar" %}
                     {{test}}
-                {% endwith %}
+                {% else %}
+                    {% for item in range(2) %}{% if True %}{{test}}{% endif %}{% endfor %}
+                {% endif %}
+            {% else %}
+                snafu
             {% endif %}
         """)
-        self.assertEqual(template1.render(test="foobar").strip(), "bar")
-        self.assertEqual(template1.render(test="foo").strip(), "snafusnafu")
-        self.assertEqual(template1.render(test="").strip(), "wibble")
+        self.assertEqual(template1.render(test="foobar").strip(), "foobar")
+        self.assertEqual(template1.render(test="foo").strip(), "foofoo")
+        self.assertEqual(template1.render(test="").strip(), "snafu")
         
     def testAutoEscape(self):
         template1 = moody.compile("{{'foo'}}")

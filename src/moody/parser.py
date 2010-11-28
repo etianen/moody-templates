@@ -306,37 +306,7 @@ def if_macro(parser, lineno, expression):
             else_tag = True
         elif endif_flag:
             break
-                
     return IfNode(clauses, else_block)
-
-
-class WithNode(Node):
-    
-    """A node that sets a variable in the context for a limited scope."""
-    
-    __slots__ = ("expression", "name", "block",)
-    
-    def __init__(self, expression, name, block):
-        """Initializes the WithNode."""
-        self.expression = expression
-        self.name = name
-        self.block = block
-        
-    def render(self, context):
-        """Renders the WithNode."""
-        value = self.expression.eval(context)
-        with context.block() as sub_context:
-            sub_context.params[self.name] = value
-            self.block._render_to_context(sub_context)
-
-
-RE_ENDWITH = re.compile("^endwith$")
-    
-@regex_macro("^with\s+(.+?)\s+as\s+(.+?)$")
-def with_macro(parser, lineno, expression, name):
-    """A macro that implements a 'with' expression."""
-    _, match, block = parser.parse_block("with", "endwith", RE_ENDWITH)
-    return WithNode(Expression(expression), name, block)
     
 
 class ForNode(Node):
@@ -370,7 +340,7 @@ def for_macro(parser, lineno, name, expression):
 
 
 # The set of default macros.
-DEFAULT_MACROS = (if_macro, with_macro, for_macro,)
+DEFAULT_MACROS = (if_macro, for_macro,)
 
 
 # The default parser, using the default set of macros.

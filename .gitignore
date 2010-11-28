@@ -7,6 +7,6 @@
 .bzr
 .bzrignore
 Thumbs.db
-src/django_reversion.egg-info/
 *.egg
 *.tar.gz
+src/moody_templates.egg-info/

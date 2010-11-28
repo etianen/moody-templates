@@ -7,7 +7,7 @@ from setuptools import setup, find_packages
 
 
 setup(
-    name="Moody Templates",
+    name="moody-templates",
     version="1.0",
     description="",
     author="Dave Hall",
