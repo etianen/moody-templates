@@ -7,7 +7,7 @@ from xml.sax.saxutils import escape
 from moody.parser import default_parser, TemplateError, regex_macro, Node, Expression
 
 
-class TemplateDoesNotExist(TemplateError):
+class TemplateDoesNotExist(Exception):
     
     """A named template could not be found."""
 

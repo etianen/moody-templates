@@ -1,7 +1,7 @@
 import unittest
 
 import moody
-from moody.parser import TemplateSyntaxError
+from moody.parser import TemplateSyntaxError, TemplateValueError
 from moody.loader import default_loader, TemplateDoesNotExist
 
 
@@ -50,8 +50,8 @@ class TestRender(unittest.TestCase):
         # Test variable expansion.
         template2 = moody.compile("{% for n, m in value %}{{n}}{{m}}{% endfor %}")
         self.assertEqual(template2.render(value=[["foo", "bar"]]), "foobar")
-        self.assertRaises(ValueError, lambda: template2.render(value=[["foo"]]))
-        self.assertRaises(ValueError, lambda: template2.render(value=[["foo", "bar", "foobar"]]))
+        self.assertRaises(TemplateValueError, lambda: template2.render(value=[["foo"]]))
+        self.assertRaises(TemplateValueError, lambda: template2.render(value=[["foo", "bar", "foobar"]]))
         
     def testNestedTags(self):
         template1 = moody.compile("""

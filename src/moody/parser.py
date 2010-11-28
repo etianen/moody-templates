@@ -10,10 +10,30 @@ class TemplateError(Exception):
     
     """An error has occured with a template."""
     
+    def __init__(self, message, lineno):
+        """Initializes the TemplateError."""
+        super(TemplateError, self).__init__(message)
+        self.lineno = lineno
+        
+    def __str__(self):
+        """Returns a string representation."""
+        message = super(TemplateError, self).__str__()
+        return "Line {}: {}".format(self.lineno, message)
+    
     
 class TemplateSyntaxError(TemplateError):
     
     """An error has been found in a template's syntax."""
+
+
+class TemplateRenderError(TemplateError):
+    
+    """An error occured while rendering a template."""
+    
+    
+class TemplateValueError(TemplateError):
+    
+    """An error occured with a template's value."""
 
 
 class Context:
@@ -66,7 +86,7 @@ class Name:
         # Make sure that the names are valid.
         for name in self.names:
             if not RE_NAME.match(name):
-                raise TemplateSyntaxError("Line {}: {!r} is not a valid variable name. Only letters, numbers and undescores are allowed.".format(lineno, name))
+                raise TemplateSyntaxError("{!r} is not a valid variable name. Only letters, numbers and undescores are allowed.".format(name), lineno)
 
     def set(self, context, value):
         """Sets the value in the context under this name."""
@@ -77,14 +97,14 @@ class Name:
                 try:
                     context.params[name_part] = next(value)
                 except StopIteration:
-                    raise ValueError("Line {}: Not enough values to unpack.".format(self.lineno))
+                    raise TemplateValueError("Not enough values to unpack.", self.lineno)
             # Make sure there are no more values.
             try:
                 next(value)
             except StopIteration:
                 pass
             else:
-                raise ValueError("Line {}: Need more that {} values to unpack.".format(self.lineno, len(self.names)))
+                raise TemplateValueError("Need more that {} values to unpack.".format(len(self.names)), self.lineno)
         else:
             context.params[self.names[0]] = value
 
@@ -261,13 +281,13 @@ class ParserRun:
         """
         lineno, token_contents, nodes = self.parse_template_chunk()
         if not token_contents:
-            raise TemplateSyntaxError("Line {lineno}: {{% {start} %}} tag could not find a corresponding {{% {end} }}.".format(lineno=lineno, start=start_tag, end=end_tag))
+            raise TemplateSyntaxError("{{% {} %}} tag could not find a corresponding {{% {} }}.".format(start_tag, end_tag), lineno)
         # Attempt to match.
         match = regex.match(token_contents)
         if match:
             return lineno, match, TemplateFragment(nodes)
         # No match, so raise syntax error.
-        raise TemplateSyntaxError("Line {lineno}: {{% {token} %}} is not a recognized tag.".format(lineno=lineno, token=token_contents))
+        raise TemplateSyntaxError("{{% {} %}} is not a recognized tag.".format(token=token_contents), lineno)
             
         
 class Parser:
@@ -290,7 +310,7 @@ class Parser:
         # Render the main block.
         lineno, token_contents, nodes = ParserRun(template, macros).parse_template_chunk()
         if token_contents:
-            raise TemplateSyntaxError("Line {lineno}: {{% {token} %}} is not a recognized tag.".format(lineno=lineno, token=token_contents))
+            raise TemplateSyntaxError("{{% {} %}} is not a recognized tag.".format(token_contents), lineno)
         return Template(nodes, default_params)
 
 
@@ -345,11 +365,11 @@ def if_macro(parser, lineno, expression):
         elif_flag, elif_expression, else_flag, endif_flag = match.groups()
         if elif_flag:
             if else_tag:
-                raise TemplateSyntaxError("Line {}: {{% elif %}} tag cannot come after {{% else %}}.".format(block_lineno))
+                raise TemplateSyntaxError("{{% elif %}} tag cannot come after {{% else %}}.", block_lineno)
             expression = elif_expression
         elif else_flag:
             if else_tag:
-                raise TemplateSyntaxError("Line {}: Only one {{% else %}} tag is allowed per {{% if %}} macro.".format(block_lineno))
+                raise TemplateSyntaxError("Only one {{% else %}} tag is allowed per {{% if %}} macro.", block_lineno)
             else_tag = True
         elif endif_flag:
             break
