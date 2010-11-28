@@ -1,1 +1,0 @@
-{% include "moody/tests/template.txt" %}

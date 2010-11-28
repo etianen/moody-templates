@@ -22,6 +22,11 @@ def render(template, **params):
     
 
 # TODO: alternative loader sources, such as memory.
+# TODO: test memory loader
+# TODO: test disk loader
+# TODO: test caching and none caching loaders
+# TODO: inherit from self
 # TODO: set node (then use to test name expansion properly)
 # TODO: import node (two types)
 # TODO: render node
+# TODO: decent error reporting

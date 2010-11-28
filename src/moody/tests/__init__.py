@@ -2,7 +2,7 @@ import unittest
 
 import moody
 from moody.parser import TemplateCompileError, TemplateRenderError
-from moody.loader import default_loader, TemplateDoesNotExist
+from moody.loader import default_loader, TemplateLoader, TemplateDoesNotExist, MemoryTemplateSource, CachedTemplateLoader
 
 
 class TestRender(unittest.TestCase):
@@ -78,39 +78,54 @@ class TestRender(unittest.TestCase):
         template1 = moody.compile("{{test}}", default_params={"test": "foo"})
         self.assertEqual(template1.render(), "foo")
         self.assertEqual(template1.render(test="bar"), "bar")
-        
-        
+
+
+test_sources = (MemoryTemplateSource({
+    "simple.txt": "{{test}}",
+}), MemoryTemplateSource({
+    "simple.html": "{{test}}",
+    "include.txt": "{% include 'simple.txt' %}"
+}))
+
+
 class TestLoader(unittest.TestCase):
     
-    def setUp(self):
-        default_loader._template_cache.clear()
+    loader = TemplateLoader(test_sources)
     
     def testLoad(self):
-        cache_size = len(default_loader._template_cache)
-        self.assertIn("Dave <dave@etianen.com>", default_loader.render("moody/tests/template.txt", name="Dave", email="<dave@etianen.com>"))
-        self.assertGreater(len(default_loader._template_cache), cache_size)
-        # Test that caching is loading.
-        cache_size = len(default_loader._template_cache)
-        self.assertIn("Dave <dave@etianen.com>", default_loader.render("moody/tests/template.txt", name="Dave", email="<dave@etianen.com>"))
-        self.assertEqual(len(default_loader._template_cache), cache_size)
+        self.assertTrue(self.loader.load("simple.txt"))
         
     def testAutoescape(self):
-        self.assertIn("Dave &lt;dave@etianen.com&gt;", default_loader.render("moody/tests/template.html", name="Dave", email="<dave@etianen.com>"))
-    
+        self.assertEqual(self.loader.render("simple.txt", test="<Hello world>"), "<Hello world>")
+        self.assertEqual(self.loader.render("simple.html", test="<Hello world>"), "&lt;Hello world&gt;")
+        
     def testNameStacking(self):
-        self.assertIn("Dave &lt;dave@etianen.com&gt;", default_loader.render("moody/tests/dummy.html", "moody/tests/template.html", name="Dave", email="<dave@etianen.com>"))
-    
+        self.assertEqual(self.loader.render("missing.txt", "simple.txt", test="foo"), "foo")
+        
     def testTemplateDoesNotExist(self):
-        self.assertRaises(TemplateDoesNotExist, lambda: default_loader.load("moody/tests/dummy.html"))
+        self.assertRaises(TemplateDoesNotExist, lambda: default_loader.load("missing.txt"))
         
     def testIncludeTag(self):
-        self.assertEqual(default_loader.render("moody/tests/template.txt", name="Dave", email="<dave@etianen.com>"), default_loader.render("moody/tests/include.txt", name="Dave", email="<dave@etianen.com>"))
+        self.assertEqual(self.loader.render("include.txt", test="foo"), self.loader.render("simple.txt", test="foo"))
+
+
+class TestCachedLoader(TestLoader):
     
-    def testInheritance(self):
-        self.assertEqual(default_loader.render("moody/tests/parent.txt"), "Hello world")
-        self.assertEqual(default_loader.render("moody/tests/child.txt"), "Hello Dave Hall")
-        self.assertEqual(default_loader.render("moody/tests/grandchild.txt"), "Hello Dave Foo")
-        # TODO: Make sure that the extends node handles syntax errors.
+    def setUp(self):
+        self.loader = CachedTemplateLoader(test_sources)
+        
+    def testCache(self):
+        self.assertEqual(len(self.loader._cache), 0)
+        self.loader.load("simple.txt")
+        self.assertEqual(len(self.loader._cache), 1)
+        self.loader.load("simple.txt")
+        self.assertEqual(len(self.loader._cache), 1)
+        
+        
+class TestDirectoryTemplateSource(unittest.TestCase):
+    
+    def testLoad(self):
+        self.assertEqual(default_loader.render("src/moody/__init__.py"), open("src/moody/__init__.py", "r").read())
         
         
 if __name__ == "__main__":

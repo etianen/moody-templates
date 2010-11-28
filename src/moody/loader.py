@@ -2,6 +2,7 @@
 
 
 import os, sys, re
+from abc import ABCMeta, abstractmethod
 from xml.sax.saxutils import escape
 
 from moody.parser import default_parser, regex_macro, Node, Expression
@@ -21,66 +22,57 @@ DEFAULT_AUTOESCAPE_FUNCTIONS = {
 }
 
 
-class Loader:
+class TemplateSource(metaclass=ABCMeta):
     
-    """A caching template loader."""
+    """A source of template data."""
     
-    __slots__ = ("_template_dirs", "_template_cache", "_parser", "_loader_macros", "_autoescape_functions",)
+    __slots__ = ()
     
-    def __init__(self, template_dirs=(), parser=default_parser, loader_macros=(), autoescape_functions=DEFAULT_AUTOESCAPE_FUNCTIONS):
+    @abstractmethod
+    def load_source(self, template_name):
         """
-        Initializes the loader.
+        Loads the template source code for the template of the given name.
         
-        When specifying template_dirs on Windows,the forward slash '/' should be used as a path separator.
-        """
-        self._template_dirs = template_dirs
-        self._template_cache = {}
-        self._parser = parser
-        self._loader_macros = loader_macros
-        self._autoescape_functions = autoescape_functions
-        
-    def load(self, *template_names):        
-        """
-        Loads and returns the named template.
-        
-        If more than one template name is given, then the first template that exists will be used.
-        
-        On Windows, the forward slash '/' should be used as a path separator.
+        If no source code can be found, returns None.
         """
         
-        # Try to load.
-        for template_name in template_names:
-            _, extension = os.path.splitext(template_name)
-            # Set up the default params.
-            default_params = {
-                "__autoescape__": self._autoescape_functions.get(extension),
-                "__loader__": self
-            }
-            # Try to use the cache.
-            if template_name in self._template_cache:
-                return self._template_cache[template_name]
-            # Try to use one of the template dirs.
-            for template_dir in self._template_dirs:
-                template_path = os.path.normpath(os.path.join(template_dir, template_name))
-                if os.path.exists(template_path):
-                    with open(template_path, "r") as template_file:
-                        template = self._parser.compile(template_file.read(), template_name, default_params, self._loader_macros)
-                    self._template_cache[template_name] = template
-                    return template
-        # Raise an error.
-        template_name_string = ", ".join(repr(template_name) for template_name in template_names)
-        template_dir_string = ", ".join(repr(template_dir) for template_dir in self._template_dirs)
-        raise TemplateDoesNotExist("Could not find a template named {} in any of {}".format(template_name_string, template_dir_string))
         
-    def render(self, *template_names, **params):
+class MemoryTemplateSource(TemplateSource):
+
+    """A template loader that loads from memory."""
+    
+    __slots__ = ("templates",)
+    
+    def __init__(self, templates):
+        """Initializes the MemoryTemplateSource from a dict of template source strings."""
+        self.templates = templates
+        
+    def load_source(self, template_name):
+        """Loads the source from the memory template dict."""
+        return self.templates.get(template_name)
+        
+        
+class DirectoryTemplateSource(TemplateSource):
+    
+    """A template loader that loads from a directory on disk."""
+    
+    __slots__ = ("dirname")
+    
+    def __init__(self, dirname):
         """
-        Loads and renders the named template.
+        Initializes the DirectoryTemplateSource.
         
-        If more than one template name is given, then the first template that exists will be used.
-        
-        On Windows, the forward slash '/' should be used as a path separator.
+        On windows, the dirname should be specified using forward-slashes.
         """
-        return self.load(*template_names).render(**params)
+        self.dirname = dirname
+        
+    def load_source(self, template_name):
+        """Loads the source from disk."""
+        template_path = os.path.normpath(os.path.join(self.dirname, template_name))
+        if os.path.exists(template_path):
+            with open(template_path, "r") as template_file:
+                return template_file.read()
+        return None
 
 
 class IncludeNode(Node):
@@ -174,7 +166,84 @@ def extends_macro(parser, expression):
 
 # Default additional macros available to a template loader.    
 DEFAULT_LOADER_MACROS = (include_macro, block_macro, extends_macro,)
+
+
+class TemplateLoader:
+    
+    """A template loader."""
+    
+    __slots__ = ("_sources", "_parser", "_loader_macros", "_autoescape_functions",)
+    
+    def __init__(self, sources, parser=default_parser, loader_macros=DEFAULT_LOADER_MACROS, autoescape_functions=DEFAULT_AUTOESCAPE_FUNCTIONS):
+        """
+        Initializes the TemplateLoader.
+        
+        When specifying template_dirs on Windows,the forward slash '/' should be used as a path separator.
+        """
+        self._sources = sources
+        self._parser = parser
+        self._loader_macros = loader_macros
+        self._autoescape_functions = autoescape_functions
+        
+    def load(self, *template_names):        
+        """
+        Loads and returns the named template.
+        
+        If more than one template name is given, then the first template that exists will be used.
+        
+        On Windows, the forward slash '/' should be used as a path separator.
+        """
+        
+        # Try to load.
+        for template_name in template_names:
+            _, extension = os.path.splitext(template_name)
+            # Set up the default params.
+            default_params = {
+                "__autoescape__": self._autoescape_functions.get(extension),
+                "__loader__": self
+            }
+            # Try to use one of the template loaders.
+            for source in self._sources:
+                template_src = source.load_source(template_name)
+                if template_src is not None:
+                    return self._parser.compile(template_src, template_name, default_params, self._loader_macros)
+        # Raise an error.
+        raise TemplateDoesNotExist("Could not find a template named {}.".format(", ".join(repr(template_name) for template_name in template_names)))
+        
+    def render(self, *template_names, **params):
+        """
+        Loads and renders the named template.
+        
+        If more than one template name is given, then the first template that exists will be used.
+        
+        On Windows, the forward slash '/' should be used as a path separator.
+        """
+        return self.load(*template_names).render(**params)
+        
+        
+class CachedTemplateLoader(TemplateLoader):
+    
+    """A template loader that caches the compiled templates for greater performance."""
+    
+    __slots__ = ("_cache",)
+    
+    def __init__(self, sources, parser=default_parser, loader_macros=DEFAULT_LOADER_MACROS, autoescape_functions=DEFAULT_AUTOESCAPE_FUNCTIONS):
+        """Initializes the CachedTemplateLoader."""
+        super(CachedTemplateLoader, self).__init__(sources, parser, loader_macros, autoescape_functions)
+        self._cache = {}
+        
+    def clear_cache(self):
+        """Clears the template cache."""
+        self._cache.clear()
+        
+    def load(self, template_name, *other_template_names):
+        """Loads the named template, attempting to use the cache."""
+        if template_name in self._cache:
+            return self._cache[template_name]
+        template = super(CachedTemplateLoader, self).load(template_name, *other_template_names)
+        self._cache[template_name] = template
+        return template
         
 
 # The default template loader, which loads templates from the pythonpath.
-default_loader = Loader(sys.path, loader_macros=DEFAULT_LOADER_MACROS)
+default_loader = CachedTemplateLoader([DirectoryTemplateSource(dir) for dir in sys.path])

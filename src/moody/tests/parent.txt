@@ -1,1 +1,0 @@
-Hello {% block name %}world{% endblock name %}

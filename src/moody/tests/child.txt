@@ -1,3 +1,0 @@
-{% extends "moody/tests/parent.txt" %}
-
-{% block name %}Dave {% block surname %}Hall{% endblock %}{% endblock name %}

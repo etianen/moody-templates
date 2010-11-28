@@ -256,10 +256,10 @@ class ParserRun:
         with macro_name and nodes as positional arguments. The end_chunk handler
         must then process the nodes and return a result.
         """
+        lineno = 0
         nodes = []
         try:
             for lineno, token_type, token_contents in self.tokens:
-
                 if token_type == "STRING":
                     node = StringNode(token_contents)
                 elif token_type == "EXPRESSION":
@@ -310,28 +310,6 @@ class ParserRun:
                 raise SyntaxError("{{% {} %}} is not a recognized tag.".format(token_contents))
             return match, TemplateFragment(nodes, self.name)
         return self.parse_template_chunk(end_chunk_handler)
-            
-        
-class Parser:
-    
-    """A template parser."""
-    
-    __slots__ = ("_macros",)
-    
-    def __init__(self, macros=()):
-        """Initializes the Parser."""
-        self._macros = macros
-        
-    def compile(self, template, name="<string>", default_params=None, extra_macros=()):
-        """Compiles the template."""
-        # Get the list of macros.
-        macros = list(self._macros)
-        macros.extend(extra_macros)
-        # Get the default params.
-        default_params = default_params or {}
-        # Render the main block.
-        nodes = ParserRun(template, name, macros).parse_all_nodes()
-        return Template(nodes, name, default_params)
 
 
 def regex_macro(regex):
@@ -429,5 +407,27 @@ def for_macro(parser, name, expression):
 DEFAULT_MACROS = (if_macro, for_macro,)
 
 
+class Parser:
+    
+    """A template parser."""
+    
+    __slots__ = ("_macros",)
+    
+    def __init__(self, macros=DEFAULT_MACROS):
+        """Initializes the Parser."""
+        self._macros = macros
+        
+    def compile(self, template, name="<string>", default_params=None, extra_macros=()):
+        """Compiles the template."""
+        # Get the list of macros.
+        macros = list(self._macros)
+        macros.extend(extra_macros)
+        # Get the default params.
+        default_params = default_params or {}
+        # Render the main block.
+        nodes = ParserRun(template, name, macros).parse_all_nodes()
+        return Template(nodes, name, default_params)
+
+
 # The default parser, using the default set of macros.
-default_parser = Parser(DEFAULT_MACROS)
+default_parser = Parser()

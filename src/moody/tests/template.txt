@@ -1,3 +1,0 @@
-Hello world!
-
-Moody templates were created by {{name}} {{email}}.
