@@ -5,7 +5,7 @@ import os, sys, re
 from abc import ABCMeta, abstractmethod
 from xml.sax.saxutils import escape
 
-from moody.parser import default_parser, regex_macro, Node, Expression
+from moody.parser import default_parser, regex_macro, Node, Expression, Template
 
 
 class TemplateDoesNotExist(Exception):
@@ -83,6 +83,22 @@ class DirectorySource(Source):
         return self.dirname
 
 
+def get_template(context, template):
+    """
+    If template is a str, then looks up the loader and loads the template.
+    
+    Otherwise, if template is a template, returns the template.
+    """
+    if isinstance(template, Template):
+        return template
+    if isinstance(template, str):
+        if "__loader__" in context.params:
+            loader = context.params["__loader__"]
+            return loader.load(template)
+        raise ValueError("Cannot load template named {!r}, as this template was not created by a Loader.".format(template))
+    raise TypeError("Expected a Template or a str, found {!r}.".format(template))
+
+
 class IncludeNode(Node):
     
     """Node that implements an 'include' expression."""
@@ -95,9 +111,7 @@ class IncludeNode(Node):
         
     def render(self, context):
         """Renders the IncludeNode."""
-        template_name = self.expression.eval(context)
-        loader = context.params["__loader__"]
-        template = loader.load(template_name)
+        template = get_template(context, self.expression.eval(context))
         with context.block() as sub_context:
             template._render_to_context(sub_context)
 
@@ -149,10 +163,7 @@ class ExtendsNode(Node):
         
     def render(self, context):
         """Renders the ExtendsNode."""
-        # Get the parent.
-        template_name = self.expression.eval(context)
-        loader = context.params["__loader__"]
-        template = loader.load(template_name)
+        template = get_template(context, self.expression.eval(context))
         # Get the block information.
         block_info = context.params.setdefault("__blocks__", {})
         for block_node in self.block_nodes:

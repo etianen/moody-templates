@@ -424,6 +424,7 @@ class Parser:
         macros.extend(extra_macros)
         # Get the default params.
         default_params = default_params or {}
+        default_params.setdefault("__name__", name)
         # Render the main block.
         nodes = ParserRun(template, name, macros).parse_all_nodes()
         return Template(nodes, name, default_params)

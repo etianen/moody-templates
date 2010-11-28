@@ -22,6 +22,8 @@ def render(template, **params):
     return compile(template).render(**params)
     
 
+# TODO: allow inheritance without loader
+# TODO: allow include without loader
 # TODO: inherit from self
 # TODO: render block.super
 # TODO: set node (then use to test name expansion properly)

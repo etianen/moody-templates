@@ -84,6 +84,7 @@ test_loader = Loader((
     MemorySource({
         "simple.txt": "{{test}}",
         "overide.txt": "Foo",
+        "inherit.txt": "Hello {% block name %}world{% endblock %}",
     }), MemorySource({
         "simple.html": "{{test}}",
         "include.txt": "{% include 'simple.txt' %}",
@@ -91,6 +92,7 @@ test_loader = Loader((
         "child.txt": "{% extends 'parent.txt' %}{% block name %}Dave {% block surname %}Hall{% endblock %}{% endblock %}",
         "grandchild.txt": "{% extends 'child.txt' %}{% block surname %}Foo{% endblock surname %}",
         "override.txt": "Bar",
+        "inherit.txt": "{% extends __super__ %}{% block name %}Dave{% endblock %}",
     })
 ))
 
@@ -130,6 +132,9 @@ class TestLoader(unittest.TestCase):
     
     def testOverride(self):
         self.assertEqual(test_loader.render("override.txt"), "Bar")
+        
+    def testInherit(self):
+        self.assertEqual(test_loader.render("inherit.txt"), "Hello Dave")
 
         
 class TestDirectorySource(unittest.TestCase):
