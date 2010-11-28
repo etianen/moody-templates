@@ -110,10 +110,6 @@ class Node(metaclass=ABCMeta):
     
     __slots__ = ("lineno",)
     
-    def __init__(self, lineno):
-        """Initializes the Node."""
-        self.lineno = lineno
-    
     @abstractmethod
     def render(self, context):
         """Renders the node using the given context."""
@@ -125,9 +121,8 @@ class StringNode(Node):
     
     __slots__ = ("value",)
     
-    def __init__(self, lineno, value):
+    def __init__(self, value):
         """Initializes the StringNode."""
-        super(StringNode, self).__init__(lineno)
         self.value = value
         
     def render(self, context):
@@ -139,9 +134,8 @@ class ExpressionNode(Node):
     
     __slots__ = ("expression",)
     
-    def __init__(self, lineno, expression):
+    def __init__(self, expression):
         """Initializes the ExpressionNode."""
-        super(ExpressionNode, self).__init__(lineno)
         self.expression = Expression(expression)
         
     def render(self, context):
@@ -244,21 +238,23 @@ class ParserRun:
         for lineno, token_type, token_contents in self.tokens:
             try:
                 if token_type == "STRING":
-                    nodes.append(StringNode(lineno, token_contents))
+                    node = StringNode(token_contents)
                 elif token_type == "EXPRESSION":
-                    nodes.append(ExpressionNode(lineno, token_contents))
+                    node = ExpressionNode(token_contents)
                 elif token_type == "MACRO":
                     # Process macros.
                     node = None
                     for macro in self.macros:
                         node = macro(self, lineno, token_contents)
                         if node:
-                            nodes.append(node)
                             break
                     if not node:
                         return lineno, token_contents, nodes
                 else:
                     assert False, "{!r} is not a valid token type.".format(token_type)
+                # Set the node line number.
+                node.lineno = lineno
+                nodes.append(node)
             except Exception as ex:
                 set_error_lineno(ex, lineno)
                 raise
@@ -327,9 +323,8 @@ class IfNode(Node):
     
     __slots__ = ("clauses", "else_block",)
     
-    def __init__(self, lineno, clauses, else_block):
+    def __init__(self, clauses, else_block):
         """Initializes the IfNode."""
-        super(IfNode, self).__init__(lineno)
         self.clauses = clauses
         self.else_block = else_block
         
@@ -368,7 +363,7 @@ def if_macro(parser, lineno, expression):
             else_tag = True
         elif endif_flag:
             break
-    return IfNode(lineno, clauses, else_block)
+    return IfNode(clauses, else_block)
     
 
 class ForNode(Node):
@@ -377,9 +372,8 @@ class ForNode(Node):
     
     __slots__ = ("name", "expression", "block",)
     
-    def __init__(self, lineno, name, expression, block):
+    def __init__(self, name, expression, block):
         """Initializes the ForNode."""
-        super(ForNode, self).__init__(lineno)
         self.name = name
         self.expression = expression
         self.block = block
@@ -398,7 +392,7 @@ RE_ENDFOR = re.compile("^endfor$")
 def for_macro(parser, lineno, name, expression):
     """A macro that implements a 'for' loop."""
     _, match, block = parser.parse_block("for", "endfor", RE_ENDFOR)
-    return ForNode(lineno, Name(name), Expression(expression), block)
+    return ForNode(Name(name), Expression(expression), block)
 
 
 # The set of default macros.

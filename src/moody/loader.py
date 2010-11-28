@@ -89,9 +89,8 @@ class IncludeNode(Node):
     
     __slots__ = ("expression",)
     
-    def __init__(self, lineno, expression):
+    def __init__(self, expression):
         """Initializes the IncludeNode."""
-        super(IncludeNode, self).__init__(lineno)
         self.expression = expression
         
     def render(self, context):
@@ -106,7 +105,7 @@ class IncludeNode(Node):
 @regex_macro("^include\s+(.+?)$")
 def include_macro(parser, lineno, expression):
     """Macro that implements an 'include' expression."""
-    return IncludeNode(lineno, Expression(expression))
+    return IncludeNode(Expression(expression))
 
 
 class BlockNode(Node):
@@ -115,9 +114,8 @@ class BlockNode(Node):
     
     __slots__ = ("name", "block",)
     
-    def __init__(self, lineno, name, block):
+    def __init__(self, name, block):
         """Initializes the BlockNode."""
-        super(BlockNode, self).__init__(lineno)
         self.name = name
         self.block = block
         
@@ -135,7 +133,7 @@ class BlockNode(Node):
 def block_macro(parser, lineno, name):
     """Macro that implements an inheritable template block."""
     _, match, block = parser.parse_block("block", "endblock", re.compile("^endblock$|^endblock\s+{}$".format(name)))
-    return BlockNode(lineno, name, block)
+    return BlockNode(name, block)
     
     
 class ExtendsNode(Node):
@@ -144,9 +142,8 @@ class ExtendsNode(Node):
     
     __slots__ = ("expression", "block_nodes",)
     
-    def __init__(self, lineno, expression, block_nodes):
+    def __init__(self, expression, block_nodes):
         """Initializes the ExtendsNode."""
-        super(ExtendsNode, self).__init__(lineno)
         self.expression = expression
         self.block_nodes = block_nodes
         
@@ -174,7 +171,7 @@ def extends_macro(parser, lineno, expression):
         raise TemplateError("{{% {} %}} is not a recognized tag.".format(token_contents), lineno)
     # Go through the nodes, looking for all block tags.
     block_nodes = [node for node in nodes if isinstance(node, BlockNode)]
-    return ExtendsNode(lineno, Expression(expression), block_nodes)
+    return ExtendsNode(Expression(expression), block_nodes)
     
 
 # Default additional macros available to a template loader.    
