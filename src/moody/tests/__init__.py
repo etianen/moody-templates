@@ -50,6 +50,9 @@ class TestRender(unittest.TestCase):
         self.assertEqual(template2.render(n="foo"), "012foo")
         # Test various syntax errors.
         self.assertRaises(TemplateSyntaxError, lambda: moody.compile("{% for n in range(0, 3) %}"))
+        # Test variable expansion.
+        template2 = moody.compile("{% for n, m in [['foo', 'bar']] %}{{n}}{{m}}{% endfor %}")
+        self.assertEqual(template2.render(), "foobar")
         
     def testNestedTags(self):
         template1 = moody.compile("""

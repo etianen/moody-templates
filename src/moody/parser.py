@@ -1,6 +1,7 @@
 """The main template parser."""
 
 import re
+from collections import Sequence
 from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
 
@@ -13,6 +14,11 @@ class TemplateError(Exception):
 class TemplateSyntaxError(TemplateError):
     
     """An error has been found in a template's syntax."""
+    
+    
+class TemplateValueError(TemplateError):
+    
+    """An error has been found in a template's value."""
 
 
 class Context:
@@ -25,7 +31,7 @@ class Context:
         """Initializes the Context."""
         self.params = params
         self._buffer = buffer
-    
+            
     @contextmanager
     def block(self):
         """
@@ -40,6 +46,52 @@ class Context:
     def read(self):
         """Reads the contents of the buffer as a string."""
         return "".join(self._buffer)
+
+
+RE_NAME = re.compile("^[a-zA-Z_][a-zA-Z_0-9]*$")        
+        
+class Name:
+
+    """The parsed name of a template variable."""
+
+    __slots__ = ("lineno", "names", "is_expandable",)
+
+    def __init__(self, lineno, name):
+        """Parses the name_string and initializes the Name."""
+        self.lineno = lineno
+        # Parse the names.
+        if "," in name:
+            self.names = [name.strip() for name in name.split(",")]
+            if not self.names[-1]:
+                names.pop()
+            self.is_expandable = True
+        else:
+            self.names = [name]
+            self.is_expandable = False
+        # Make sure that the names are valid.
+        for name in self.names:
+            if not RE_NAME.match(name):
+                raise TemplateSyntaxError("Line {}: {!r} is not a valid variable name. Only letters, numbers and undescores are allowed.".format(lineno, name))
+
+    def set(self, params, value):
+        """Sets the value in the params under this name."""
+        if self.is_expandable:
+            # Handle variable expansion.
+            value = iter(value)
+            for name_part in self.names:
+                try:
+                    params[name_part] = next(value)
+                except StopIteration:
+                    raise TemplateValueError("Line {}: Not enough values to unpack.".format(self.lineno))
+            # Make sure there are no more values.
+            try:
+                next(value)
+            except StopIteration:
+                pass
+            else:
+                raise TemplateValueError("Line {}: Need more that {} values to unpack.".format(self.lineno, len(self.names)))
+        else:
+            params[self.names[0]] = value
 
 
 class Expression:
@@ -326,7 +378,7 @@ class ForNode(Node):
         items = self.expression.eval(context)
         with context.block() as sub_context:
             for item in items:
-                sub_context.params[self.name] = item
+                self.name.set(sub_context.params, item)
                 self.block._render_to_context(sub_context)
 
 
@@ -336,7 +388,7 @@ RE_ENDFOR = re.compile("^endfor$")
 def for_macro(parser, lineno, name, expression):
     """A macro that implements a 'for' loop."""
     _, match, block = parser.parse_block("for", "endfor", RE_ENDFOR)
-    return ForNode(name, Expression(expression), block)
+    return ForNode(Name(lineno, name), Expression(expression), block)
 
 
 # The set of default macros.
