@@ -14,11 +14,6 @@ class TemplateError(Exception):
 class TemplateSyntaxError(TemplateError):
     
     """An error has been found in a template's syntax."""
-    
-    
-class TemplateValueError(TemplateError):
-    
-    """An error has been found in a template's value."""
 
 
 class Context:
@@ -82,14 +77,14 @@ class Name:
                 try:
                     params[name_part] = next(value)
                 except StopIteration:
-                    raise TemplateValueError("Line {}: Not enough values to unpack.".format(self.lineno))
+                    raise ValueError("Line {}: Not enough values to unpack.".format(self.lineno))
             # Make sure there are no more values.
             try:
                 next(value)
             except StopIteration:
                 pass
             else:
-                raise TemplateValueError("Line {}: Need more that {} values to unpack.".format(self.lineno, len(self.names)))
+                raise ValueError("Line {}: Need more that {} values to unpack.".format(self.lineno, len(self.names)))
         else:
             params[self.names[0]] = value
 
