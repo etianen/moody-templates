@@ -2,7 +2,7 @@ import unittest
 
 import moody
 from moody.errors import TemplateRenderError, TemplateCompileError
-from moody.loader import default_loader, Loader, TemplateDoesNotExist, MemorySource
+from moody.loader import TemplateDoesNotExist, MemorySource
 
 
 class TestRender(unittest.TestCase):
@@ -80,12 +80,8 @@ class TestRender(unittest.TestCase):
         self.assertEqual(template1.render(test="bar"), "bar")
 
 
-test_loader = Loader((
+test_loader = moody.make_loader(
     MemorySource({
-        "simple.txt": "{{test}}",
-        "overide.txt": "Foo",
-        "inherit.txt": "Hello {% block name %}world{% endblock %}",
-    }), MemorySource({
         "simple.html": "{{test}}",
         "include.txt": "{% include 'simple.txt' %}",
         "parent.txt": "Hello {% block name %}world{% endblock %}",
@@ -93,8 +89,12 @@ test_loader = Loader((
         "grandchild.txt": "{% extends 'child.txt' %}{% block surname %}Foo{% endblock surname %}",
         "override.txt": "Bar",
         "inherit.txt": "{% extends __super__ %}{% block name %}Dave{% endblock %}",
+    }), MemorySource({
+        "simple.txt": "{{test}}",
+        "overide.txt": "Foo",
+        "inherit.txt": "Hello {% block name %}world{% endblock %}",
     })
-))
+)
 
 
 class TestLoader(unittest.TestCase):
@@ -113,7 +113,7 @@ class TestLoader(unittest.TestCase):
         self.assertEqual(test_loader.render("missing.txt", "simple.txt", test="foo"), "foo")
         
     def testTemplateDoesNotExist(self):
-        self.assertRaises(TemplateDoesNotExist, lambda: default_loader.load("missing.txt"))
+        self.assertRaises(TemplateDoesNotExist, lambda: test_loader.load("missing.txt"))
         
     def testIncludeTag(self):
         self.assertEqual(test_loader.render("include.txt", test="foo"), test_loader.render("simple.txt", test="foo"))
@@ -140,7 +140,7 @@ class TestLoader(unittest.TestCase):
 class TestDirectorySource(unittest.TestCase):
     
     def testLoad(self):
-        self.assertEqual(default_loader.render("src/moody/__init__.py"), open("src/moody/__init__.py", "r").read())
+        self.assertEqual(moody.default_loader.render("src/moody/__init__.py"), open("src/moody/__init__.py", "r").read())
         
         
 if __name__ == "__main__":

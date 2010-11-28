@@ -5,8 +5,6 @@ import os, sys
 from abc import ABCMeta, abstractmethod
 from xml.sax.saxutils import escape
 
-from moody.parser import default_parser
-
 
 class TemplateDoesNotExist(Exception):
     
@@ -14,7 +12,7 @@ class TemplateDoesNotExist(Exception):
 
 
 # Default rules for autoescaping templates based on name.
-DEFAULT_AUTOESCAPE_FUNCTIONS = {
+DEFAULT_AUTOESCAPE_FUNCS = {
     ".xml": escape,
     ".xhtml": escape,
     ".html": escape,
@@ -91,32 +89,23 @@ class DebugLoader:
     Terrible performance, but great for debugging.
     """
     
-    __slots__ = ("_sources", "_parser", "_autoescape_functions",)
+    __slots__ = ("_sources", "_parser", "_autoescape_funcs",)
     
-    def __init__(self, sources, parser=default_parser, autoescape_functions=DEFAULT_AUTOESCAPE_FUNCTIONS):
+    def __init__(self, sources, parser, autoescape_funcs=DEFAULT_AUTOESCAPE_FUNCS):
         """
         Initializes the Loader.
         
         When specifying template_dirs on Windows,the forward slash '/' should be used as a path separator.
         """
-        # Initialize the sources.
-        self._sources = []
-        for source in sources:
-            if isinstance(source, Source):
-                self._sources.append(source)
-            elif isinstance(source, str):
-                self._sources.append(DirectorySource(source))
-            else:
-                raise TypeError("Arguments for source should be a str or a Source instance, not {!r}.".format(source))
-        # And the rest.
+        self._sources = list(reversed(sources))
         self._parser = parser
-        self._autoescape_functions = autoescape_functions
+        self._autoescape_funcs = autoescape_funcs
     
     def _load_all(self, template_name):
         """Loads and returns all the named templates from the sources."""
         # Get the autoescape function.
         _, extension = os.path.splitext(template_name)
-        autoescape = self._autoescape_functions.get(extension)
+        autoescape = self._autoescape_funcs.get(extension)
         # Load from all the template sources.
         templates = []
         for source in self._sources:
@@ -170,9 +159,9 @@ class Loader(DebugLoader):
     
     __slots__ = ("_cache",)
     
-    def __init__(self, *args, **kwargs):
+    def __init__(self, sources, parser, autoescape_funcs=DEFAULT_AUTOESCAPE_FUNCS):
         """Initializes the loader."""
-        super(Loader, self).__init__(*args, **kwargs)
+        super(Loader, self).__init__(sources, parser, autoescape_funcs)
         self._cache = {}
     
     def clear_cache(self, ):
@@ -186,7 +175,3 @@ class Loader(DebugLoader):
         template = super(Loader, self)._load_all(template_name)
         self._cache[template_name] = template
         return template
-        
-        
-# The default template loader, which loads templates from the pythonpath.
-default_loader = Loader(sys.path)
