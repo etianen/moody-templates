@@ -51,6 +51,10 @@ class MemorySource(Source):
         """Loads the source from the memory template dict."""
         return self.templates.get(template_name)
         
+    def __str__(self):
+        """Returns a string representation."""
+        return "<memory>"
+        
         
 class DirectorySource(Source):
     
@@ -73,6 +77,10 @@ class DirectorySource(Source):
             with open(template_path, "r") as template_file:
                 return template_file.read()
         return None
+        
+    def __str__(self):
+        """Returns a string representation."""
+        return self.dirname
 
 
 class IncludeNode(Node):
@@ -168,11 +176,15 @@ def extends_macro(parser, expression):
 DEFAULT_LOADER_MACROS = (include_macro, block_macro, extends_macro,)
 
 
-class Loader:
+class DebugLoader:
+
+    """
+    A template loader that doesn't cache compiled templates.
     
-    """A template loader."""
+    Terrible performance, but great for debugging.
+    """
     
-    __slots__ = ("_sources", "_parser", "_loader_macros", "_autoescape_functions", "_cache")
+    __slots__ = ("_sources", "_parser", "_loader_macros", "_autoescape_functions",)
     
     def __init__(self, sources, parser=default_parser, loader_macros=DEFAULT_LOADER_MACROS, autoescape_functions=DEFAULT_AUTOESCAPE_FUNCTIONS):
         """
@@ -180,17 +192,39 @@ class Loader:
         
         When specifying template_dirs on Windows,the forward slash '/' should be used as a path separator.
         """
-        self._sources = sources
+        # Initialize the sources.
+        self._sources = []
+        for source in sources:
+            if isinstance(source, Source):
+                self._sources.append(source)
+            elif isinstance(source, str):
+                self._sources.append(DirectorySource(source))
+            else:
+                raise TypeError("Arguments for source should be a str or a Source instance, not {!r}.".format(source))
+        # And the rest.
         self._parser = parser
         self._loader_macros = loader_macros
         self._autoescape_functions = autoescape_functions
-        self._cache = {}
     
-    def clear_cache(self):
-        """Clears the template cache."""
-        self._cache.clear()
-        
-    def load(self, template_name, *fallback_names):        
+    def _load_all(self, template_name):
+        """Loads and returns all the named templates from the sources."""
+        # Get the autoescape function.
+        _, extension = os.path.splitext(template_name)
+        autoescape = self._autoescape_functions.get(extension)
+        # Load from all the template sources.
+        templates = []
+        for source in self._sources:
+            template_src = source.load_source(template_name)
+            if template_src is not None:
+                default_params = {
+                    "__autoescape__": autoescape,
+                    "__loader__": self,
+                    "__super__": templates and templates[-1] or None,
+                }
+                templates.append(self._parser.compile(template_src, template_name, default_params, self._loader_macros))
+        return templates
+    
+    def load(self, *template_names):        
         """
         Loads and returns the named template.
         
@@ -198,26 +232,16 @@ class Loader:
         
         On Windows, the forward slash '/' should be used as a path separator.
         """
-        if template_name in self._cache:
-            return self._cache[template_name]
-        all_template_names = (template_name,) + fallback_names
-        # Try to load.
-        for template_name_item in all_template_names:
-            _, extension = os.path.splitext(template_name_item)
-            # Set up the default params.
-            default_params = {
-                "__autoescape__": self._autoescape_functions.get(extension),
-                "__loader__": self
-            }
-            # Try to use one of the template loaders.
-            for source in self._sources:
-                template_src = source.load_source(template_name_item)
-                if template_src is not None:
-                    template = self._parser.compile(template_src, template_name_item, default_params, self._loader_macros)
-                    self._cache[template_name] = template
-                    return template
+        if not template_names:
+            raise ValueError("You must specify at least one template name.")
+        for template_name in template_names:
+            templates = self._load_all(template_name)
+            if templates:
+                return templates[-1]
         # Raise an error.
-        raise TemplateDoesNotExist("Could not find a template named {}.".format(", ".join(repr(template_name) for template_name in all_template_names)))
+        template_name_str = ", ".join(repr(template_name) for template_name in template_names)
+        source_name_str = ", ".join(str(source) for source in self._sources)
+        raise TemplateDoesNotExist("Could not find a template named {} in any of {}.".format(template_name_str, source_name_str))
         
     def render(self, *template_names, **params):
         """
@@ -228,7 +252,35 @@ class Loader:
         On Windows, the forward slash '/' should be used as a path separator.
         """
         return self.load(*template_names).render(**params)
+
+
+class Loader(DebugLoader):
+    
+    """
+    A template loader.
+    
+    Compiled templates are cached for performance.
+    """
+    
+    __slots__ = ("_cache",)
+    
+    def __init__(self, *args, **kwargs):
+        """Initializes the loader."""
+        super(Loader, self).__init__(*args, **kwargs)
+        self._cache = {}
+    
+    def clear_cache(self, ):
+        """Clears the template cache."""
+        self._cache.clear()
+        
+    def _load_all(self, template_name):
+        """A caching version of the debug loader's load method."""
+        if template_name in self._cache:
+            return self._cache[template_name]
+        template = super(Loader, self)._load_all(template_name)
+        self._cache[template_name] = template
+        return template
         
 
 # The default template loader, which loads templates from the pythonpath.
-default_loader = Loader([DirectorySource(dir) for dir in sys.path])
+default_loader = Loader(sys.path)

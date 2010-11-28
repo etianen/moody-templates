@@ -23,6 +23,7 @@ def render(template, **params):
     
 
 # TODO: inherit from self
+# TODO: render block.super
 # TODO: set node (then use to test name expansion properly)
 # TODO: import node (two types)
 # TODO: render node
