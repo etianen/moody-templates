@@ -22,7 +22,7 @@ DEFAULT_AUTOESCAPE_FUNCTIONS = {
 }
 
 
-class TemplateSource(metaclass=ABCMeta):
+class Source(metaclass=ABCMeta):
     
     """A source of template data."""
     
@@ -37,14 +37,14 @@ class TemplateSource(metaclass=ABCMeta):
         """
         
         
-class MemoryTemplateSource(TemplateSource):
+class MemorySource(Source):
 
     """A template loader that loads from memory."""
     
     __slots__ = ("templates",)
     
     def __init__(self, templates):
-        """Initializes the MemoryTemplateSource from a dict of template source strings."""
+        """Initializes the MemorySource from a dict of template source strings."""
         self.templates = templates
         
     def load_source(self, template_name):
@@ -52,7 +52,7 @@ class MemoryTemplateSource(TemplateSource):
         return self.templates.get(template_name)
         
         
-class DirectoryTemplateSource(TemplateSource):
+class DirectorySource(Source):
     
     """A template loader that loads from a directory on disk."""
     
@@ -60,7 +60,7 @@ class DirectoryTemplateSource(TemplateSource):
     
     def __init__(self, dirname):
         """
-        Initializes the DirectoryTemplateSource.
+        Initializes the DirectorySource.
         
         On windows, the dirname should be specified using forward-slashes.
         """
@@ -168,7 +168,7 @@ def extends_macro(parser, expression):
 DEFAULT_LOADER_MACROS = (include_macro, block_macro, extends_macro,)
 
 
-class TemplateLoader:
+class Loader:
     
     """A template loader."""
     
@@ -176,7 +176,7 @@ class TemplateLoader:
     
     def __init__(self, sources, parser=default_parser, loader_macros=DEFAULT_LOADER_MACROS, autoescape_functions=DEFAULT_AUTOESCAPE_FUNCTIONS):
         """
-        Initializes the TemplateLoader.
+        Initializes the Loader.
         
         When specifying template_dirs on Windows,the forward slash '/' should be used as a path separator.
         """
@@ -221,15 +221,15 @@ class TemplateLoader:
         return self.load(*template_names).render(**params)
         
         
-class CachedTemplateLoader(TemplateLoader):
+class CachedLoader(Loader):
     
     """A template loader that caches the compiled templates for greater performance."""
     
     __slots__ = ("_cache",)
     
     def __init__(self, sources, parser=default_parser, loader_macros=DEFAULT_LOADER_MACROS, autoescape_functions=DEFAULT_AUTOESCAPE_FUNCTIONS):
-        """Initializes the CachedTemplateLoader."""
-        super(CachedTemplateLoader, self).__init__(sources, parser, loader_macros, autoescape_functions)
+        """Initializes the CachedLoader."""
+        super(CachedLoader, self).__init__(sources, parser, loader_macros, autoescape_functions)
         self._cache = {}
         
     def clear_cache(self):
@@ -240,10 +240,10 @@ class CachedTemplateLoader(TemplateLoader):
         """Loads the named template, attempting to use the cache."""
         if template_name in self._cache:
             return self._cache[template_name]
-        template = super(CachedTemplateLoader, self).load(template_name, *other_template_names)
+        template = super(CachedLoader, self).load(template_name, *other_template_names)
         self._cache[template_name] = template
         return template
         
 
 # The default template loader, which loads templates from the pythonpath.
-default_loader = CachedTemplateLoader([DirectoryTemplateSource(dir) for dir in sys.path])
+default_loader = CachedLoader([DirectorySource(dir) for dir in sys.path])

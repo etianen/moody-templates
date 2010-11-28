@@ -2,7 +2,7 @@ import unittest
 
 import moody
 from moody.parser import TemplateCompileError, TemplateRenderError
-from moody.loader import default_loader, TemplateLoader, TemplateDoesNotExist, MemoryTemplateSource, CachedTemplateLoader
+from moody.loader import default_loader, Loader, TemplateDoesNotExist, MemorySource, CachedLoader
 
 
 class TestRender(unittest.TestCase):
@@ -80,9 +80,9 @@ class TestRender(unittest.TestCase):
         self.assertEqual(template1.render(test="bar"), "bar")
 
 
-test_sources = (MemoryTemplateSource({
+test_sources = (MemorySource({
     "simple.txt": "{{test}}",
-}), MemoryTemplateSource({
+}), MemorySource({
     "simple.html": "{{test}}",
     "include.txt": "{% include 'simple.txt' %}",
     "parent.txt": "Hello {% block name %}world{% endblock %}",
@@ -93,7 +93,7 @@ test_sources = (MemoryTemplateSource({
 
 class TestLoader(unittest.TestCase):
     
-    loader = TemplateLoader(test_sources)
+    loader = Loader(test_sources)
     
     def testLoad(self):
         self.assertTrue(self.loader.load("simple.txt"))
@@ -120,7 +120,7 @@ class TestLoader(unittest.TestCase):
 class TestCachedLoader(TestLoader):
     
     def setUp(self):
-        self.loader = CachedTemplateLoader(test_sources)
+        self.loader = CachedLoader(test_sources)
         
     def testCache(self):
         self.assertEqual(len(self.loader._cache), 0)
@@ -130,7 +130,7 @@ class TestCachedLoader(TestLoader):
         self.assertEqual(len(self.loader._cache), 1)
         
         
-class TestDirectoryTemplateSource(unittest.TestCase):
+class TestDirectorySource(unittest.TestCase):
     
     def testLoad(self):
         self.assertEqual(default_loader.render("src/moody/__init__.py"), open("src/moody/__init__.py", "r").read())
