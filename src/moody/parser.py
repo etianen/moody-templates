@@ -19,21 +19,6 @@ class TemplateError(Exception):
         """Returns a string representation."""
         message = super(TemplateError, self).__str__()
         return "Line {}: {}".format(self.lineno, message)
-    
-    
-class TemplateSyntaxError(TemplateError):
-    
-    """An error has been found in a template's syntax."""
-
-
-class TemplateRenderError(TemplateError):
-    
-    """An error occured while rendering a template."""
-    
-    
-class TemplateValueError(TemplateError):
-    
-    """An error occured with a template's value."""
 
 
 class Context:
@@ -69,11 +54,10 @@ class Name:
 
     """The parsed name of a template variable."""
 
-    __slots__ = ("lineno", "names", "is_expandable",)
+    __slots__ = ("names", "is_expandable",)
 
-    def __init__(self, lineno, name):
+    def __init__(self, name):
         """Parses the name_string and initializes the Name."""
-        self.lineno = lineno
         # Parse the names.
         if "," in name:
             self.names = [name.strip() for name in name.split(",")]
@@ -86,7 +70,7 @@ class Name:
         # Make sure that the names are valid.
         for name in self.names:
             if not RE_NAME.match(name):
-                raise TemplateSyntaxError("{!r} is not a valid variable name. Only letters, numbers and undescores are allowed.".format(name), lineno)
+                raise ValueError("{!r} is not a valid variable name. Only letters, numbers and undescores are allowed.".format(name))
 
     def set(self, context, value):
         """Sets the value in the context under this name."""
@@ -97,14 +81,14 @@ class Name:
                 try:
                     context.params[name_part] = next(value)
                 except StopIteration:
-                    raise TemplateValueError("Not enough values to unpack.", self.lineno)
+                    raise ValueError("Not enough values to unpack.")
             # Make sure there are no more values.
             try:
                 next(value)
             except StopIteration:
                 pass
             else:
-                raise TemplateValueError("Need more that {} values to unpack.".format(len(self.names)), self.lineno)
+                raise ValueError("Need more that {} values to unpack.".format(len(self.names)))
         else:
             context.params[self.names[0]] = value
 
@@ -128,7 +112,11 @@ class Node(metaclass=ABCMeta):
     
     """A node in a compiled template."""
     
-    __slots__ = ()
+    __slots__ = ("lineno",)
+    
+    def __init__(self, lineno):
+        """Initializes the Node."""
+        self.lineno = lineno
     
     @abstractmethod
     def render(self, context):
@@ -141,8 +129,9 @@ class StringNode(Node):
     
     __slots__ = ("value",)
     
-    def __init__(self, value):
+    def __init__(self, lineno, value):
         """Initializes the StringNode."""
+        super(StringNode, self).__init__(lineno)
         self.value = value
         
     def render(self, context):
@@ -154,8 +143,9 @@ class ExpressionNode(Node):
     
     __slots__ = ("expression",)
     
-    def __init__(self, expression):
+    def __init__(self, lineno, expression):
         """Initializes the ExpressionNode."""
+        super(ExpressionNode, self).__init__(lineno)
         self.expression = Expression(expression)
         
     def render(self, context):
@@ -182,7 +172,12 @@ class TemplateFragment:
     def _render_to_context(self, context):
         """Renders the template to the given context."""
         for node in self._nodes:
-            node.render(context)
+            try:
+                node.render(context)
+            except TemplateError:
+                raise
+            except Exception as ex:
+                raise TemplateError(str(ex), node.lineno)
         
         
 class Template(TemplateFragment):
@@ -252,22 +247,27 @@ class ParserRun:
         """
         nodes = []
         for lineno, token_type, token_contents in self.tokens:
-            if token_type == "STRING":
-                nodes.append(StringNode(token_contents))
-            elif token_type == "EXPRESSION":
-                nodes.append(ExpressionNode(token_contents))
-            elif token_type == "MACRO":
-                # Process macros.
-                node = None
-                for macro in self.macros:
-                    node = macro(self, lineno, token_contents)
-                    if node:
-                        nodes.append(node)
-                        break
-                if not node:
-                    return lineno, token_contents, nodes
-            else:
-                assert False, "{!r} is not a valid token type.".format(token_type)
+            try:
+                if token_type == "STRING":
+                    nodes.append(StringNode(lineno, token_contents))
+                elif token_type == "EXPRESSION":
+                    nodes.append(ExpressionNode(lineno, token_contents))
+                elif token_type == "MACRO":
+                    # Process macros.
+                    node = None
+                    for macro in self.macros:
+                        node = macro(self, lineno, token_contents)
+                        if node:
+                            nodes.append(node)
+                            break
+                    if not node:
+                        return lineno, token_contents, nodes
+                else:
+                    assert False, "{!r} is not a valid token type.".format(token_type)
+            except TemplateError:
+                raise
+            except Exception as ex:
+                raise TemplateError(str(ex), lineno)
         # No match.
         return lineno, None, nodes
         
@@ -281,13 +281,13 @@ class ParserRun:
         """
         lineno, token_contents, nodes = self.parse_template_chunk()
         if not token_contents:
-            raise TemplateSyntaxError("{{% {} %}} tag could not find a corresponding {{% {} }}.".format(start_tag, end_tag), lineno)
+            raise TemplateError("{{% {} %}} tag could not find a corresponding {{% {} }}.".format(start_tag, end_tag), lineno)
         # Attempt to match.
         match = regex.match(token_contents)
         if match:
             return lineno, match, TemplateFragment(nodes)
         # No match, so raise syntax error.
-        raise TemplateSyntaxError("{{% {} %}} is not a recognized tag.".format(token=token_contents), lineno)
+        raise TemplateError("{{% {} %}} is not a recognized tag.".format(token=token_contents), lineno)
             
         
 class Parser:
@@ -310,7 +310,7 @@ class Parser:
         # Render the main block.
         lineno, token_contents, nodes = ParserRun(template, macros).parse_template_chunk()
         if token_contents:
-            raise TemplateSyntaxError("{{% {} %}} is not a recognized tag.".format(token_contents), lineno)
+            raise TemplateError("{{% {} %}} is not a recognized tag.".format(token_contents), lineno)
         return Template(nodes, default_params)
 
 
@@ -333,8 +333,9 @@ class IfNode(Node):
     
     __slots__ = ("clauses", "else_block",)
     
-    def __init__(self, clauses, else_block):
+    def __init__(self, lineno, clauses, else_block):
         """Initializes the IfNode."""
+        super(IfNode, self).__init__(lineno)
         self.clauses = clauses
         self.else_block = else_block
         
@@ -365,15 +366,15 @@ def if_macro(parser, lineno, expression):
         elif_flag, elif_expression, else_flag, endif_flag = match.groups()
         if elif_flag:
             if else_tag:
-                raise TemplateSyntaxError("{{% elif %}} tag cannot come after {{% else %}}.", block_lineno)
+                raise TemplateError("{{% elif %}} tag cannot come after {{% else %}}.", block_lineno)
             expression = elif_expression
         elif else_flag:
             if else_tag:
-                raise TemplateSyntaxError("Only one {{% else %}} tag is allowed per {{% if %}} macro.", block_lineno)
+                raise TemplateError("Only one {{% else %}} tag is allowed per {{% if %}} macro.", block_lineno)
             else_tag = True
         elif endif_flag:
             break
-    return IfNode(clauses, else_block)
+    return IfNode(lineno, clauses, else_block)
     
 
 class ForNode(Node):
@@ -382,8 +383,9 @@ class ForNode(Node):
     
     __slots__ = ("name", "expression", "block",)
     
-    def __init__(self, name, expression, block):
+    def __init__(self, lineno, name, expression, block):
         """Initializes the ForNode."""
+        super(ForNode, self).__init__(lineno)
         self.name = name
         self.expression = expression
         self.block = block
@@ -402,7 +404,7 @@ RE_ENDFOR = re.compile("^endfor$")
 def for_macro(parser, lineno, name, expression):
     """A macro that implements a 'for' loop."""
     _, match, block = parser.parse_block("for", "endfor", RE_ENDFOR)
-    return ForNode(Name(lineno, name), Expression(expression), block)
+    return ForNode(lineno, Name(name), Expression(expression), block)
 
 
 # The set of default macros.

@@ -1,7 +1,7 @@
 import unittest
 
 import moody
-from moody.parser import TemplateSyntaxError, TemplateValueError
+from moody.parser import TemplateError
 from moody.loader import default_loader, TemplateDoesNotExist
 
 
@@ -37,21 +37,21 @@ class TestRender(unittest.TestCase):
         self.assertEqual(template4.render(test="snafu"), "snafu")
         self.assertEqual(template4.render(test="wibble"), "")
         # Test various syntax errors.
-        self.assertRaises(TemplateSyntaxError, lambda: moody.compile("{% if True %}"))
-        self.assertRaises(TemplateSyntaxError, lambda: moody.compile("{% if True %}{% else %}{% elif True %}{% endif %}"))
-        self.assertRaises(TemplateSyntaxError, lambda: moody.compile("{% if True %}{% else %}{% else %}{% endif %}"))
+        self.assertRaises(TemplateError, lambda: moody.compile("{% if True %}"))
+        self.assertRaises(TemplateError, lambda: moody.compile("{% if True %}{% else %}{% elif True %}{% endif %}"))
+        self.assertRaises(TemplateError, lambda: moody.compile("{% if True %}{% else %}{% else %}{% endif %}"))
     
     def testForMacro(self):
         # Test basic functionality.
         template1 = moody.compile("{% for n in range(0, 3) %}{{n}}{% endfor %}")
         self.assertEqual(template1.render(), "012")
         # Test various syntax errors.
-        self.assertRaises(TemplateSyntaxError, lambda: moody.compile("{% for n in range(0, 3) %}"))
+        self.assertRaises(TemplateError, lambda: moody.compile("{% for n in range(0, 3) %}"))
         # Test variable expansion.
         template2 = moody.compile("{% for n, m in value %}{{n}}{{m}}{% endfor %}")
         self.assertEqual(template2.render(value=[["foo", "bar"]]), "foobar")
-        self.assertRaises(TemplateValueError, lambda: template2.render(value=[["foo"]]))
-        self.assertRaises(TemplateValueError, lambda: template2.render(value=[["foo", "bar", "foobar"]]))
+        self.assertRaises(TemplateError, lambda: template2.render(value=[["foo"]]))
+        self.assertRaises(TemplateError, lambda: template2.render(value=[["foo", "bar", "foobar"]]))
         
     def testNestedTags(self):
         template1 = moody.compile("""
