@@ -50,8 +50,8 @@ class TestRender(unittest.TestCase):
         # Test variable expansion.
         template2 = moody.compile("{% for n, m in value %}{{n}}{{m}}{% endfor %}")
         self.assertEqual(template2.render(value=[["foo", "bar"]]), "foobar")
-        self.assertRaises(TemplateError, lambda: template2.render(value=[["foo"]]))
-        self.assertRaises(TemplateError, lambda: template2.render(value=[["foo", "bar", "foobar"]]))
+        self.assertRaises(ValueError, lambda: template2.render(value=[["foo"]]))
+        self.assertRaises(ValueError, lambda: template2.render(value=[["foo", "bar", "foobar"]]))
         
     def testNestedTags(self):
         template1 = moody.compile("""
@@ -110,6 +110,7 @@ class TestLoader(unittest.TestCase):
         self.assertEqual(default_loader.render("moody/tests/parent.txt"), "Hello world")
         self.assertEqual(default_loader.render("moody/tests/child.txt"), "Hello Dave Hall")
         self.assertEqual(default_loader.render("moody/tests/grandchild.txt"), "Hello Dave Foo")
+        # TODO: Make sure that the extends node handles syntax errors.
         
         
 if __name__ == "__main__":

@@ -171,7 +171,7 @@ def extends_macro(parser, lineno, expression):
     # Parse the rest of the template.
     lineno, token_contents, nodes = parser.parse_template_chunk()
     if token_contents:
-        raise TemplateSyntaxError("Line {lineno}: {{% {token} %}} is not a recognized tag.".format(lineno=lineno, token=token_contents))
+        raise TemplateError("{{% {} %}} is not a recognized tag.".format(token_contents), lineno)
     # Go through the nodes, looking for all block tags.
     block_nodes = [node for node in nodes if isinstance(node, BlockNode)]
     return ExtendsNode(lineno, Expression(expression), block_nodes)

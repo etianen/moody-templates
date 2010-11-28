@@ -10,15 +10,11 @@ class TemplateError(Exception):
     
     """An error has occured with a template."""
     
-    def __init__(self, message, lineno):
-        """Initializes the TemplateError."""
-        super(TemplateError, self).__init__(message)
-        self.lineno = lineno
-        
-    def __str__(self):
-        """Returns a string representation."""
-        message = super(TemplateError, self).__str__()
-        return "Line {}: {}".format(self.lineno, message)
+    
+def set_error_lineno(ex, lineno):
+    """Annotates an exception with the template line number."""
+    if not hasattr(ex, "template_lineno"):
+        ex.template_lineno = lineno
 
 
 class Context:
@@ -174,10 +170,9 @@ class TemplateFragment:
         for node in self._nodes:
             try:
                 node.render(context)
-            except TemplateError:
-                raise
             except Exception as ex:
-                raise TemplateError(str(ex), node.lineno)
+                set_error_lineno(ex, node.lineno)
+                raise
         
         
 class Template(TemplateFragment):
@@ -264,10 +259,9 @@ class ParserRun:
                         return lineno, token_contents, nodes
                 else:
                     assert False, "{!r} is not a valid token type.".format(token_type)
-            except TemplateError:
-                raise
             except Exception as ex:
-                raise TemplateError(str(ex), lineno)
+                set_error_lineno(ex, lineno)
+                raise
         # No match.
         return lineno, None, nodes
         
