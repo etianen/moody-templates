@@ -6,7 +6,8 @@ Fast and extensible. It gets the job done.
 Developed by Dave Hall <dave@etianen.com>.
 """
 
-from moody.parser import default_parser, TemplateError
+from moody.errors import TemplateError, TemplateCompileError, TemplateRenderError
+from moody.parser import default_parser
 from moody.loader import default_loader
 
 

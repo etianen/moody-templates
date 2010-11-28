@@ -1,7 +1,7 @@
 import unittest
 
 import moody
-from moody.parser import TemplateCompileError, TemplateRenderError
+from moody.errors import TemplateRenderError, TemplateCompileError
 from moody.loader import default_loader, Loader, TemplateDoesNotExist, MemorySource
 
 

@@ -1,11 +1,11 @@
 """A caching template loader that allows disk-based templates to be used."""
 
 
-import os, sys, re
+import os, sys
 from abc import ABCMeta, abstractmethod
 from xml.sax.saxutils import escape
 
-from moody.parser import default_parser, regex_macro, Node, Expression, Template
+from moody.parser import default_parser
 
 
 class TemplateDoesNotExist(Exception):
@@ -83,110 +83,6 @@ class DirectorySource(Source):
         return self.dirname
 
 
-def get_template(context, template):
-    """
-    If template is a str, then looks up the loader and loads the template.
-    
-    Otherwise, if template is a template, returns the template.
-    """
-    if isinstance(template, Template):
-        return template
-    if isinstance(template, str):
-        if "__loader__" in context.params:
-            loader = context.params["__loader__"]
-            return loader.load(template)
-        raise ValueError("Cannot load template named {!r}, as this template was not created by a Loader.".format(template))
-    raise TypeError("Expected a Template or a str, found {!r}.".format(template))
-
-
-class IncludeNode(Node):
-    
-    """Node that implements an 'include' expression."""
-    
-    __slots__ = ("expression",)
-    
-    def __init__(self, expression):
-        """Initializes the IncludeNode."""
-        self.expression = expression
-        
-    def render(self, context):
-        """Renders the IncludeNode."""
-        template = get_template(context, self.expression.eval(context))
-        with context.block() as sub_context:
-            template._render_to_context(sub_context)
-
-
-@regex_macro("^include\s+(.+?)$")
-def include_macro(parser, expression):
-    """Macro that implements an 'include' expression."""
-    return IncludeNode(Expression(expression))
-
-
-class BlockNode(Node):
-    
-    """A block of inheritable content."""
-    
-    __slots__ = ("name", "block",)
-    
-    def __init__(self, name, block):
-        """Initializes the BlockNode."""
-        self.name = name
-        self.block = block
-        
-    def render(self, context):
-        """Renders the BlockNode."""
-        # Add my block to the stack.
-        stack = context.params.get("__blocks__", {}).get(self.name, [])
-        stack.append(self.block)
-        # Render the bottommost block.
-        with context.block() as sub_context:
-            stack[0]._render_to_context(sub_context)
-
-
-@regex_macro("^block\s+([a-zA-Z_][a-zA-Z_\-0-9]*)$")
-def block_macro(parser, name):
-    """Macro that implements an inheritable template block."""
-    match, block = parser.parse_block("block", "endblock", re.compile("^endblock$|^endblock\s+{}$".format(name)))
-    return BlockNode(name, block)
-    
-    
-class ExtendsNode(Node):
-    
-    """Implements a inherited child template."""
-    
-    __slots__ = ("expression", "block_nodes",)
-    
-    def __init__(self, expression, block_nodes):
-        """Initializes the ExtendsNode."""
-        self.expression = expression
-        self.block_nodes = block_nodes
-        
-    def render(self, context):
-        """Renders the ExtendsNode."""
-        template = get_template(context, self.expression.eval(context))
-        # Get the block information.
-        block_info = context.params.setdefault("__blocks__", {})
-        for block_node in self.block_nodes:
-            block_info.setdefault(block_node.name, []).append(block_node.block)
-        # Render the parent template with my blocks.
-        with context.block() as sub_context:
-            template._render_to_context(sub_context)
-    
-    
-@regex_macro("^extends\s+(.+?)$")
-def extends_macro(parser, expression):
-    """Macro that implements an inherited child template."""
-    # Parse the rest of the template.
-    nodes = parser.parse_all_nodes()
-    # Go through the nodes, looking for all block tags.
-    block_nodes = [node for node in nodes if isinstance(node, BlockNode)]
-    return ExtendsNode(Expression(expression), block_nodes)
-    
-
-# Default additional macros available to a template loader.    
-DEFAULT_LOADER_MACROS = (include_macro, block_macro, extends_macro,)
-
-
 class DebugLoader:
 
     """
@@ -195,9 +91,9 @@ class DebugLoader:
     Terrible performance, but great for debugging.
     """
     
-    __slots__ = ("_sources", "_parser", "_loader_macros", "_autoescape_functions",)
+    __slots__ = ("_sources", "_parser", "_autoescape_functions",)
     
-    def __init__(self, sources, parser=default_parser, loader_macros=DEFAULT_LOADER_MACROS, autoescape_functions=DEFAULT_AUTOESCAPE_FUNCTIONS):
+    def __init__(self, sources, parser=default_parser, autoescape_functions=DEFAULT_AUTOESCAPE_FUNCTIONS):
         """
         Initializes the Loader.
         
@@ -214,7 +110,6 @@ class DebugLoader:
                 raise TypeError("Arguments for source should be a str or a Source instance, not {!r}.".format(source))
         # And the rest.
         self._parser = parser
-        self._loader_macros = loader_macros
         self._autoescape_functions = autoescape_functions
     
     def _load_all(self, template_name):
@@ -232,7 +127,7 @@ class DebugLoader:
                     "__loader__": self,
                     "__super__": templates and templates[-1] or None,
                 }
-                templates.append(self._parser.compile(template_src, template_name, default_params, self._loader_macros))
+                templates.append(self._parser.compile(template_src, template_name, default_params))
         return templates
     
     def load(self, *template_names):        
@@ -292,6 +187,6 @@ class Loader(DebugLoader):
         self._cache[template_name] = template
         return template
         
-
+        
 # The default template loader, which loads templates from the pythonpath.
 default_loader = Loader(sys.path)
