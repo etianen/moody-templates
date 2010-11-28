@@ -14,6 +14,9 @@ from moody.parser import Parser
 from moody.loader import Loader, DebugLoader, Source, DirectorySource, TemplateDoesNotExist
 
 
+__all__ = ("default_parser", "compile", "render", "make_loader", "default_loader",)
+
+
 default_parser = Parser(DEFAULT_MACROS)
 
 compile = default_parser.compile
