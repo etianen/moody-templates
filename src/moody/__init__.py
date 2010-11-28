@@ -21,6 +21,7 @@ def render(template, **params):
     return compile(template).render(**params)
     
 
-# TODO: template error reporting (filename, lineno)
 # TODO: alternative loader sources, such as memory.
-# TODO: make fallback exec node.
+# TODO: set node (then use to test name expansion properly)
+# TODO: import node (two types)
+# TODO: render node

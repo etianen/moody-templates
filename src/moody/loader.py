@@ -129,7 +129,7 @@ class BlockNode(Node):
             stack[0]._render_to_context(sub_context)
 
 
-@regex_macro("^block\s+(.+?)$")
+@regex_macro("^block\s+([a-zA-Z_][a-zA-Z_\-0-9]*)$")
 def block_macro(parser, name):
     """Macro that implements an inheritable template block."""
     match, block = parser.parse_block("block", "endblock", re.compile("^endblock$|^endblock\s+{}$".format(name)))
