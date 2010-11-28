@@ -245,7 +245,7 @@ class ParserRun:
                     # Process macros.
                     node = None
                     for macro in self.macros:
-                        node = macro(self, lineno, token_contents)
+                        node = macro(self, token_contents)
                         if node:
                             break
                     if not node:
@@ -266,7 +266,7 @@ class ParserRun:
         Parses a block of template, looking for a macro token that matches the
         given regex.
         
-        If a match is found, then a tuple of (lineno, match, template_fragment) is
+        If a match is found, then a tuple of (match, template_fragment) is
         returned. A TemplateSyntaxError is raised.
         """
         lineno, token_contents, nodes = self.parse_template_chunk()
@@ -275,7 +275,7 @@ class ParserRun:
         # Attempt to match.
         match = regex.match(token_contents)
         if match:
-            return lineno, match, TemplateFragment(nodes)
+            return match, TemplateFragment(nodes)
         # No match, so raise syntax error.
         raise TemplateError("{{% {} %}} is not a recognized tag.".format(token=token_contents), lineno)
             
@@ -308,10 +308,10 @@ def regex_macro(regex):
     """A decorator that defines a macro function."""
     regex = re.compile(regex)
     def decorator(func):
-        def wrapper(parser, lineno, token):
+        def wrapper(parser, token):
             match = regex.match(token)
             if match:
-                return func(parser, lineno, *match.groups(), **match.groupdict())
+                return func(parser, *match.groups(), **match.groupdict())
             return None
         return wrapper
     return decorator
@@ -341,13 +341,13 @@ class IfNode(Node):
 RE_IF_CLAUSE = re.compile("^(elif) (.+?)$|^(else)$|^(endif)$")
 
 @regex_macro("^if\s+(.+?)$")
-def if_macro(parser, lineno, expression):
+def if_macro(parser, expression):
     """A macro that implements an 'if' expression."""
     clauses = []
     else_tag = False
     else_block = None
     while True:
-        block_lineno, match, block = parser.parse_block("if", "endif", RE_IF_CLAUSE)
+        match, block = parser.parse_block("if", "endif", RE_IF_CLAUSE)
         if else_tag:
             else_block = block
         else:
@@ -355,11 +355,11 @@ def if_macro(parser, lineno, expression):
         elif_flag, elif_expression, else_flag, endif_flag = match.groups()
         if elif_flag:
             if else_tag:
-                raise TemplateError("{{% elif %}} tag cannot come after {{% else %}}.", block_lineno)
+                raise TemplateError("{{% elif %}} tag cannot come after {{% else %}}.")
             expression = elif_expression
         elif else_flag:
             if else_tag:
-                raise TemplateError("Only one {{% else %}} tag is allowed per {{% if %}} macro.", block_lineno)
+                raise TemplateError("Only one {{% else %}} tag is allowed per {{% if %}} macro.")
             else_tag = True
         elif endif_flag:
             break
@@ -389,9 +389,9 @@ class ForNode(Node):
 RE_ENDFOR = re.compile("^endfor$")
 
 @regex_macro("^for\s+(.+?)\s+in\s+(.+?)$")
-def for_macro(parser, lineno, name, expression):
+def for_macro(parser, name, expression):
     """A macro that implements a 'for' loop."""
-    _, match, block = parser.parse_block("for", "endfor", RE_ENDFOR)
+    match, block = parser.parse_block("for", "endfor", RE_ENDFOR)
     return ForNode(Name(name), Expression(expression), block)
 
 

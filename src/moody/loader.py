@@ -103,7 +103,7 @@ class IncludeNode(Node):
 
 
 @regex_macro("^include\s+(.+?)$")
-def include_macro(parser, lineno, expression):
+def include_macro(parser, expression):
     """Macro that implements an 'include' expression."""
     return IncludeNode(Expression(expression))
 
@@ -130,9 +130,9 @@ class BlockNode(Node):
 
 
 @regex_macro("^block\s+(.+?)$")
-def block_macro(parser, lineno, name):
+def block_macro(parser, name):
     """Macro that implements an inheritable template block."""
-    _, match, block = parser.parse_block("block", "endblock", re.compile("^endblock$|^endblock\s+{}$".format(name)))
+    match, block = parser.parse_block("block", "endblock", re.compile("^endblock$|^endblock\s+{}$".format(name)))
     return BlockNode(name, block)
     
     
@@ -163,12 +163,12 @@ class ExtendsNode(Node):
     
     
 @regex_macro("^extends\s+(.+?)$")
-def extends_macro(parser, lineno, expression):
+def extends_macro(parser, expression):
     """Macro that implements an inherited child template."""
     # Parse the rest of the template.
-    lineno, token_contents, nodes = parser.parse_template_chunk()
+    _, token_contents, nodes = parser.parse_template_chunk()
     if token_contents:
-        raise TemplateError("{{% {} %}} is not a recognized tag.".format(token_contents), lineno)
+        raise TemplateError("{{% {} %}} is not a recognized tag.".format(token_contents))
     # Go through the nodes, looking for all block tags.
     block_nodes = [node for node in nodes if isinstance(node, BlockNode)]
     return ExtendsNode(Expression(expression), block_nodes)
