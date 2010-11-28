@@ -19,7 +19,7 @@ class TemplateError(Exception):
     def __str__(self):
         """Returns a string representation."""
         message = super(TemplateError, self).__str__()
-        return "{} [From {} on line {}]".format(message, self.template_name, self.template_lineno)
+        return "{} [From {!r} on line {}]".format(message, self.template_name, self.template_lineno)
         
         
 class TemplateCompileError(TemplateError):
@@ -303,7 +303,7 @@ class ParserRun:
         """
         def end_chunk_handler(token_contents, nodes):
             if not token_contents:
-                raise SyntaxError("{% {} %} tag could not find a corresponding {% {} %}.".format(start_tag, end_tag))
+                raise SyntaxError("{{% {} %}} tag could not find a corresponding {{% {} %}}.".format(start_tag, end_tag))
             # Attempt to match.
             match = regex.match(token_contents)
             if not match:

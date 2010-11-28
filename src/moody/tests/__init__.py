@@ -84,7 +84,10 @@ test_sources = (MemoryTemplateSource({
     "simple.txt": "{{test}}",
 }), MemoryTemplateSource({
     "simple.html": "{{test}}",
-    "include.txt": "{% include 'simple.txt' %}"
+    "include.txt": "{% include 'simple.txt' %}",
+    "parent.txt": "Hello {% block name %}world{% endblock %}",
+    "child.txt": "{% extends 'parent.txt' %}{% block name %}Dave {% block surname %}Hall{% endblock %}{% endblock %}",
+    "grandchild.txt": "{% extends 'child.txt' %}{% block surname %}Foo{% endblock surname %}",
 }))
 
 
@@ -107,6 +110,11 @@ class TestLoader(unittest.TestCase):
         
     def testIncludeTag(self):
         self.assertEqual(self.loader.render("include.txt", test="foo"), self.loader.render("simple.txt", test="foo"))
+        
+    def testInheritance(self):
+        self.assertEqual(self.loader.render("parent.txt"), "Hello world")
+        self.assertEqual(self.loader.render("child.txt"), "Hello Dave Hall")
+        self.assertEqual(self.loader.render("grandchild.txt"), "Hello Dave Foo")
 
 
 class TestCachedLoader(TestLoader):
