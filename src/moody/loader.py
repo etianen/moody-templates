@@ -4,7 +4,7 @@
 import os, sys, re
 from xml.sax.saxutils import escape
 
-from moody.parser import default_parser, TemplateError, regex_macro, Node, Expression
+from moody.parser import default_parser, TemplateSyntaxError, regex_macro, Node, Expression
 
 
 class TemplateDoesNotExist(Exception):
@@ -64,7 +64,7 @@ class Loader:
                 template_path = os.path.normpath(os.path.join(template_dir, template_name))
                 if os.path.exists(template_path):
                     with open(template_path, "r") as template_file:
-                        template = self._parser.compile(template_file.read(), default_params, self._loader_macros)
+                        template = self._parser.compile(template_file.read(), template_name, default_params, self._loader_macros)
                     self._template_cache[template_name] = template
                     return template
         # Raise an error.
@@ -168,7 +168,7 @@ def extends_macro(parser, expression):
     # Parse the rest of the template.
     _, token_contents, nodes = parser.parse_template_chunk()
     if token_contents:
-        raise TemplateError("{{% {} %}} is not a recognized tag.".format(token_contents))
+        raise TemplateSyntaxError("{{% {} %}} is not a recognized tag.".format(token_contents))
     # Go through the nodes, looking for all block tags.
     block_nodes = [node for node in nodes if isinstance(node, BlockNode)]
     return ExtendsNode(Expression(expression), block_nodes)

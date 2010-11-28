@@ -6,15 +6,25 @@ from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
 
 
+class TemplateSyntaxError(Exception):
+    
+    """An error has occured with a template's syntax."""
+    
+    
 class TemplateError(Exception):
     
-    """An error has occured with a template."""
+    """An error occured in a template."""
     
-    
-def set_error_lineno(ex, lineno):
-    """Annotates an exception with the template line number."""
-    if not hasattr(ex, "template_lineno"):
-        ex.template_lineno = lineno
+    def __init__(self, message, template_name, template_lineno):
+        """Initializes the TemplateError."""
+        super(TemplateError, self).__init__(message)
+        self.template_name = template_name
+        self.template_lineno = template_lineno
+        
+    def __str__(self):
+        """Returns a string representation."""
+        message = super(TemplateError, self).__str__()
+        return "{} [{} on line {}]".format(message, self.template_name, self.template_lineno)
 
 
 class Context:
@@ -153,31 +163,34 @@ class TemplateFragment:
     
     """A fragment of a template."""
     
-    __slots__ = ("_nodes",)
+    __slots__ = ("_nodes", "_name",)
     
-    def __init__(self, nodes):
+    def __init__(self, nodes, name):
         """Initializes the TemplateFragment."""
         self._nodes = nodes
+        self._name = name
         
     def _render_to_context(self, context):
         """Renders the template to the given context."""
         for node in self._nodes:
             try:
                 node.render(context)
-            except Exception as ex:
-                set_error_lineno(ex, node.lineno)
+            except TemplateError:
                 raise
+            except Exception as ex:
+                raise TemplateError(str(ex), self._name, node.lineno)
         
         
 class Template(TemplateFragment):
     
     """A compiled template."""
     
-    __slots__ = ("_nodes", "_default_params",)
+    __slots__ = ("_default_params",)
     
-    def __init__(self, nodes, default_params):
+    def __init__(self, nodes, name, default_params):
         """Initializes the template."""
-        super(Template, self).__init__(nodes)
+        super(Template, self).__init__(nodes, name)
+        self._name = name
         self._default_params = default_params
             
     def render(self, **params):
@@ -220,11 +233,12 @@ class ParserRun:
     
     """The state held by a parser during a run."""
     
-    __slots__ = ("tokens", "macros",)
+    __slots__ = ("tokens", "name", "macros",)
     
-    def __init__(self, template, macros):
+    def __init__(self, template, name, macros):
         """Initializes the ParserRun."""
         self.tokens = tokenize(template)
+        self.name = name
         self.macros = macros
     
     def parse_template_chunk(self):
@@ -255,9 +269,10 @@ class ParserRun:
                 # Set the node line number.
                 node.lineno = lineno
                 nodes.append(node)
-            except Exception as ex:
-                set_error_lineno(ex, lineno)
+            except TemplateError:
                 raise
+            except Exception as ex:
+                raise TemplateError(str(ex), self.name, lineno)
         # No match.
         return lineno, None, nodes
         
@@ -270,14 +285,15 @@ class ParserRun:
         returned. A TemplateSyntaxError is raised.
         """
         lineno, token_contents, nodes = self.parse_template_chunk()
+        # TODO: This needs errors to be caught.
         if not token_contents:
-            raise TemplateError("{{% {} %}} tag could not find a corresponding {{% {} }}.".format(start_tag, end_tag), lineno)
+            raise TemplateSyntaxError("{{% {} %}} tag could not find a corresponding {{% {} }}.".format(start_tag, end_tag))
         # Attempt to match.
         match = regex.match(token_contents)
         if match:
-            return match, TemplateFragment(nodes)
+            return match, TemplateFragment(nodes, self.name)
         # No match, so raise syntax error.
-        raise TemplateError("{{% {} %}} is not a recognized tag.".format(token=token_contents), lineno)
+        raise TemplateSyntaxError("{{% {} %}} is not a recognized tag.".format(token=token_contents))
             
         
 class Parser:
@@ -290,7 +306,7 @@ class Parser:
         """Initializes the Parser."""
         self._macros = macros
         
-    def compile(self, template, default_params=None, extra_macros=()):
+    def compile(self, template, name="<string>", default_params=None, extra_macros=()):
         """Compiles the template."""
         # Get the list of macros.
         macros = list(self._macros)
@@ -298,10 +314,10 @@ class Parser:
         # Get the default params.
         default_params = default_params or {}
         # Render the main block.
-        lineno, token_contents, nodes = ParserRun(template, macros).parse_template_chunk()
+        lineno, token_contents, nodes = ParserRun(template, name, macros).parse_template_chunk()
         if token_contents:
-            raise TemplateError("{{% {} %}} is not a recognized tag.".format(token_contents), lineno)
-        return Template(nodes, default_params)
+            raise TemplateSyntaxError("{{% {} %}} is not a recognized tag.".format(token_contents))
+        return Template(nodes, name, default_params)
 
 
 def regex_macro(regex):
@@ -355,11 +371,11 @@ def if_macro(parser, expression):
         elif_flag, elif_expression, else_flag, endif_flag = match.groups()
         if elif_flag:
             if else_tag:
-                raise TemplateError("{{% elif %}} tag cannot come after {{% else %}}.")
+                raise TemplateSyntaxError("{{% elif %}} tag cannot come after {{% else %}}.")
             expression = elif_expression
         elif else_flag:
             if else_tag:
-                raise TemplateError("Only one {{% else %}} tag is allowed per {{% if %}} macro.")
+                raise TemplateSyntaxError("Only one {{% else %}} tag is allowed per {{% if %}} macro.")
             else_tag = True
         elif endif_flag:
             break
