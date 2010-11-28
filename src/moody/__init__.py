@@ -26,4 +26,4 @@ def render(template, **params):
 # TODO: set node (then use to test name expansion properly)
 # TODO: import node (two types)
 # TODO: render node
-# TODO: decent error reporting
+# TODO: test error reporting
