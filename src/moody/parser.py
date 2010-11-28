@@ -40,12 +40,12 @@ class Context:
     
     """The state of a template during render time."""
     
-    __slots__ = ("params", "_buffer",)
+    __slots__ = ("params", "buffer",)
     
     def __init__(self, params, buffer):
         """Initializes the Context."""
         self.params = params
-        self._buffer = buffer
+        self.buffer = buffer
             
     @contextmanager
     def block(self):
@@ -55,12 +55,12 @@ class Context:
         Changes to the sub-context will not affect the parent context, although
         the buffer is shared.
         """
-        sub_context = Context(self.params.copy(), self._buffer)
+        sub_context = Context(self.params.copy(), self.buffer)
         yield sub_context
     
     def read(self):
         """Reads the contents of the buffer as a string."""
-        return "".join(self._buffer)
+        return "".join(self.buffer)
 
 
 RE_NAME = re.compile("^[a-zA-Z_][a-zA-Z_0-9]*$")        
@@ -147,7 +147,7 @@ class StringNode(Node):
         
     def render(self, context):
         """Renders the StringNode."""
-        context._buffer.append(self.value)
+        context.buffer.append(self.value)
 
 
 class ExpressionNode(Node):
@@ -166,7 +166,7 @@ class ExpressionNode(Node):
         if autoescape:
             value = autoescape(value)
         # Write the value.
-        context._buffer.append(value)
+        context.buffer.append(value)
 
 
 class TemplateFragment:
