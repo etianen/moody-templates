@@ -154,7 +154,7 @@ class Parser:
         
     def compile(self, template, name="__string__", params=None, meta=None):
         """Compiles the template."""
-        meta = meta or {}
+        meta = meta and meta.copy() or {}
         meta["__name__"] = name
         # Get the default params.
         params = params or {}

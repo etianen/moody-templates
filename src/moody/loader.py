@@ -101,6 +101,13 @@ class DebugLoader:
         self._parser = parser
         self._autoescape_funcs = autoescape_funcs
     
+    def compile(self, template, name="__string__", params=None, meta=None):
+        """Compiles the given template source."""
+        meta = meta or {}
+        meta["__loader__"] = self
+        meta.update(meta or {})
+        return self._parser.compile(template, name, params, meta)
+    
     def _load_all(self, template_name):
         """Loads and returns all the named templates from the sources."""
         # Get the autoescape function.
@@ -113,10 +120,9 @@ class DebugLoader:
             if template_src is not None:
                 meta = {
                     "__autoescape__": autoescape,
-                    "__loader__": self,
                     "__super__": templates and templates[-1] or None,
                 }
-                templates.append(self._parser.compile(template_src, template_name, {}, meta))
+                templates.append(self.compile(template_src, template_name, {}, meta))
         return templates
     
     def load(self, *template_names):        

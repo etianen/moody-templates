@@ -184,6 +184,9 @@ class TestLoader(unittest.TestCase):
         self.assertEqual(test_loader.render("multi_parent_block_parent.txt"), "foobar")
         self.assertEqual(test_loader.render("multi_parent_block_child.txt"), "foobarbarbar")
         self.assertRaises(TemplateCompileError, lambda: test_loader.load("multi_parent_block_child_error.txt"))
+        
+    def testStandaloneCompile(self):
+        self.assertEqual(test_loader.compile("{% include 'simple.txt' %}").render(test="foo"), "foo")
 
         
 class TestDirectorySource(unittest.TestCase):
