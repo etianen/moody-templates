@@ -1,6 +1,6 @@
 """The default built-in macros."""
 
-import re, sys
+import re
 
 import moody
 from moody.base import Node, Expression, Name, Template
