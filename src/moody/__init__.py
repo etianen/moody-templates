@@ -47,5 +47,5 @@ def make_loader(*sources, loader_cls=Loader, parser=default_parser, **kwargs):
     
 
 default_loader = make_loader(*sys.path)
-    
-# TODO: test error reporting
+
+# TODO: set up autoescape on template name

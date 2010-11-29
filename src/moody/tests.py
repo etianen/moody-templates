@@ -193,6 +193,25 @@ class TestDirectorySource(unittest.TestCase):
     
     def testLoad(self):
         self.assertEqual(moody.default_loader.render("src/moody/__init__.py"), open("src/moody/__init__.py", "r").read())
+
+
+class TestErrorReporting(unittest.TestCase):
+    
+    def testCompileError(self):
+        try:
+            moody.compile("{% if foo %}\n{{foo}}\n{% else %}\n{% flobble %}\n{% endif %}", name="foo")
+        except TemplateCompileError as ex:
+            self.assertEqual(ex.template_lineno, 4)
+            self.assertEqual(ex.template_name, "foo")
+            self.assertTrue(isinstance(ex.__cause__, SyntaxError))
+            
+    def testRenderError(self):
+        try:
+            moody.compile("{% if foo %}\n{{bar}}\n{% else %}\nHello world\n{% endif %}", name="foo").render(foo="foo")
+        except TemplateRenderError as ex:
+            self.assertEqual(ex.template_lineno, 2)
+            self.assertEqual(ex.template_name, "foo")
+            self.assertTrue(isinstance(ex.__cause__, NameError))
         
         
 if __name__ == "__main__":
