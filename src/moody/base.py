@@ -116,7 +116,7 @@ class TemplateFragment:
             except TemplateRenderError:
                 raise
             except Exception as ex:
-                raise TemplateRenderError(str(ex), self._name, node.lineno)
+                raise TemplateRenderError(str(ex), self._name, node.lineno) from ex
 
 
 class Template(TemplateFragment):
@@ -131,12 +131,18 @@ class Template(TemplateFragment):
         self._params = params
         self._meta = meta
 
-    def _render_to_context(self, context):
+    def _render_to_sub_context(self, context, params, meta):
         """Renders the template to the given context."""
+        # Generate the params.
         sub_params = self._params.copy()
         sub_params.update(context.params)
-        sub_context = Context(sub_params, self._meta, context.buffer)
-        super(Template, self)._render_to_context(sub_context)
+        sub_params.update(params)
+        # Generate the meta.
+        sub_meta = self._meta.copy()
+        sub_meta.update(meta)
+        # Generate the sub context.
+        sub_context = Context(sub_params, sub_meta, context.buffer)
+        self._render_to_context(sub_context)
 
     def render(self, **params):
         """Renders the template, returning the string result."""
@@ -146,5 +152,5 @@ class Template(TemplateFragment):
         # Create the context.
         context = Context(context_params, self._meta, [])
         # Render the template.
-        super(Template, self)._render_to_context(context)
+        self._render_to_context(context)
         return context.read()

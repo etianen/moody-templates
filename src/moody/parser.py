@@ -111,7 +111,7 @@ class ParserRun:
             except TemplateCompileError:
                 raise
             except Exception as ex:
-                raise TemplateCompileError(str(ex), self.name, lineno)
+                raise TemplateCompileError(str(ex), self.name, lineno) from ex
         # No unknown macro.
         return end_chunk_handler(None, nodes)
         

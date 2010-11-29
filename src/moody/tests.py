@@ -102,6 +102,9 @@ test_loader = moody.make_loader(
         "grandchild.txt": "{% extends 'child.txt' %}{% block surname %}Foo{% endblock surname %}",
         "override.txt": "Bar",
         "inherit.txt": "{% extends __super__ %}{% block surname %}Foo{% endblock %}",
+        "scoped_meta_parent.txt": "{% block name %}{{__name__}}{% endblock %}",
+        "scoped_meta_child.txt": "{% extends 'scoped_meta_parent.txt' %}{% block name %}{{__name__}}{% endblock %}",
+        "scoped_meta_grandchild.txt": "{% extends 'scoped_meta_child.txt' %}{% block name %}{{__name__}}{% endblock %}",
     }), MemorySource({
         "simple.txt": "{{test}}",
         "overide.txt": "Foo",
@@ -150,6 +153,11 @@ class TestLoader(unittest.TestCase):
         
     def testSelfInherit(self):
         self.assertEqual(test_loader.render("inherit.txt"), "Hello Dave Foo")
+        
+    def testScopedMeta(self):
+        self.assertEqual(test_loader.render("scoped_meta_parent.txt"), "scoped_meta_parent.txt")
+        self.assertEqual(test_loader.render("scoped_meta_child.txt"), "scoped_meta_child.txt")
+        self.assertEqual(test_loader.render("scoped_meta_grandchild.txt"), "scoped_meta_grandchild.txt")
 
         
 class TestDirectorySource(unittest.TestCase):

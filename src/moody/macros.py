@@ -124,7 +124,7 @@ class IncludeNode(Node):
     def render(self, context):
         """Renders the IncludeNode."""
         template = get_template(context, self.expression.eval(context))
-        template._render_to_context(context)
+        template._render_to_sub_context(context, {}, {})
 
 
 @regex_macro("^include\s+(.+?)$")
@@ -143,14 +143,20 @@ class BlockNode(Node):
         """Initializes the BlockNode."""
         self.name = name
         self.block = block
-
+    
     def render(self, context):
         """Renders the BlockNode."""
-        # Add my block to the stack.
-        stack = context.params.get("__blocks__", {}).get(self.name, [])
-        stack.append(self.block)
-        # Render the bottommost block.
-        stack[0]._render_to_context(context)
+        # Get the topmost block.
+        block_context = context
+        block = self.block
+        child_context = block_context
+        while "__child__" in child_context.meta:
+            child_context = block_context.meta["__child__"]
+            if self.name in child_context.meta["__blocks__"]:
+                block = child_context.meta["__blocks__"][self.name]
+                block_context = child_context
+        # Render the topmost block.
+        block._render_to_context(block_context)
 
 
 @regex_macro("^block\s+([a-zA-Z_][a-zA-Z_\-0-9]*)$")
@@ -173,13 +179,12 @@ class ExtendsNode(Node):
 
     def render(self, context):
         """Renders the ExtendsNode."""
-        template = get_template(context, self.expression.eval(context))
-        # Get the block information.
-        block_info = context.params.setdefault("__blocks__", {})
-        for block_node in self.block_nodes:
-            block_info.setdefault(block_node.name, []).append(block_node.block)
+        # Create a summary of my blocks.
+        blocks = {block_node.name: block_node.block for block_node in self.block_nodes}
+        context.meta["__blocks__"] = blocks
         # Render the parent template with my blocks.
-        template._render_to_context(context)
+        template = get_template(context, self.expression.eval(context))
+        template._render_to_sub_context(context, {}, {"__child__": context})
 
 
 @regex_macro("^extends\s+(.+?)$")
