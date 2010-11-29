@@ -90,8 +90,8 @@ class TestRender(unittest.TestCase):
         self.assertEqual(template1.render(test="").strip(), "snafu")
         
     def testAutoEscape(self):
-        template1 = moody.compile("{{'foo'}}", meta={"__autoescape__": lambda v: "bar"})
-        self.assertEqual(template1.render(), "bar")
+        template1 = moody.compile("{{'foo'}}{% render 'foo' %}", meta={"__autoescape__": lambda v: "bar"})
+        self.assertEqual(template1.render(), "barfoo")
         
     def testDefaultParams(self):
         template1 = moody.compile("{{test}}", params={"test": "foo"})

@@ -21,7 +21,7 @@ def regex_macro(regex):
 
 class SetNode(Node):
     
-    """A nodes that sets a parameter in the context."""
+    """A node that sets a parameter in the context."""
     
     __slots__ = ("expression", "name",)
     
@@ -39,6 +39,27 @@ class SetNode(Node):
 def set_macro(parser, expression, name):
     """Macro that allows setting of a value in the context."""
     return SetNode(Expression(expression), Name(name))
+    
+    
+class RenderNode(Node):
+    
+    """A node that renders an expression without autoescaping."""
+    
+    __slots__ = ("expression",)
+    
+    def __init__(self, expression):
+        """Initializes the RenderNode."""
+        self.expression = expression
+        
+    def render(self, context):
+        """Renders the RenderNode."""
+        context.buffer.append(str(self.expression.eval(context)))
+        
+        
+@regex_macro("^render\s+(.+?)$")
+def render_macro(parser, expression):
+    """Macro that allows an expression to be rendered without autoescaping."""
+    return RenderNode(Expression(expression))
 
 
 class IfNode(Node):
@@ -243,4 +264,4 @@ def extends_macro(parser, expression):
 
 
 # The set of default macros.
-DEFAULT_MACROS = (set_macro, if_macro, for_macro, include_macro, block_macro, super_macro, extends_macro,)
+DEFAULT_MACROS = (set_macro, render_macro, if_macro, for_macro, include_macro, block_macro, super_macro, extends_macro,)
