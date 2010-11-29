@@ -1,6 +1,7 @@
 """The main template parser."""
 
-import re
+import os, re
+from xml.sax.saxutils import escape
 
 from moody.errors import TemplateCompileError
 from moody.base import Expression, Node, Template, TemplateFragment
@@ -142,25 +143,42 @@ class ParserRun:
         return self.parse_template_chunk(end_chunk_handler)
 
 
+# Default rules for autoescaping templates based on name.
+DEFAULT_AUTOESCAPE_FUNCS = {
+    ".xml": escape,
+    ".xhtml": escape,
+    ".html": escape,
+    ".htm": escape,
+}
+
+
 class Parser:
     
     """A template parser."""
     
-    __slots__ = ("_macros",)
+    __slots__ = ("_macros", "_autoescape_funcs",)
     
-    def __init__(self, macros):
+    def __init__(self, macros, autoescape_funcs=DEFAULT_AUTOESCAPE_FUNCS):
         """Initializes the Parser."""
         self._macros = macros
+        self._autoescape_funcs = autoescape_funcs
         
     def compile(self, template, name="__string__", params=None, meta=None):
         """Compiles the template."""
-        meta = meta and meta.copy() or {}
-        meta["__name__"] = name
+        # Get the autoescape function.
+        _, extension = os.path.splitext(name)
+        autoescape = self._autoescape_funcs.get(extension)
+        # Compile the meta params.
+        default_meta = {
+            "__name__": name,
+            "__autoescape__": autoescape,
+        }
+        default_meta.update(meta or {})
         # Get the default params.
         params = params or {}
         # Render the main block.
         nodes = ParserRun(template, name, self._macros).parse_all_nodes()
-        return Template(nodes, name, params, meta)
+        return Template(nodes, name, params, default_meta)
         
         
 # The default parser, using the default set of macros.

@@ -3,21 +3,11 @@
 
 import os, sys
 from abc import ABCMeta, abstractmethod
-from xml.sax.saxutils import escape
 
 
 class TemplateDoesNotExist(Exception):
     
     """A named template could not be found."""
-
-
-# Default rules for autoescaping templates based on name.
-DEFAULT_AUTOESCAPE_FUNCS = {
-    ".xml": escape,
-    ".xhtml": escape,
-    ".html": escape,
-    ".htm": escape,
-}
 
 
 class Source(metaclass=ABCMeta):
@@ -89,9 +79,9 @@ class DebugLoader:
     Terrible performance, but great for debugging.
     """
     
-    __slots__ = ("_sources", "_parser", "_autoescape_funcs",)
+    __slots__ = ("_sources", "_parser",)
     
-    def __init__(self, sources, parser, autoescape_funcs=DEFAULT_AUTOESCAPE_FUNCS):
+    def __init__(self, sources, parser):
         """
         Initializes the Loader.
         
@@ -99,27 +89,23 @@ class DebugLoader:
         """
         self._sources = list(reversed(sources))
         self._parser = parser
-        self._autoescape_funcs = autoescape_funcs
     
     def compile(self, template, name="__string__", params=None, meta=None):
         """Compiles the given template source."""
-        meta = meta or {}
-        meta["__loader__"] = self
-        meta.update(meta or {})
-        return self._parser.compile(template, name, params, meta)
+        default_meta = {
+            "__loader__": self
+        }
+        default_meta.update(meta or {})
+        return self._parser.compile(template, name, params, default_meta)
     
     def _load_all(self, template_name):
         """Loads and returns all the named templates from the sources."""
-        # Get the autoescape function.
-        _, extension = os.path.splitext(template_name)
-        autoescape = self._autoescape_funcs.get(extension)
         # Load from all the template sources.
         templates = []
         for source in self._sources:
             template_src = source.load_source(template_name)
             if template_src is not None:
                 meta = {
-                    "__autoescape__": autoescape,
                     "__super__": templates and templates[-1] or None,
                 }
                 templates.append(self.compile(template_src, template_name, {}, meta))
@@ -165,9 +151,9 @@ class Loader(DebugLoader):
     
     __slots__ = ("_cache",)
     
-    def __init__(self, sources, parser, autoescape_funcs=DEFAULT_AUTOESCAPE_FUNCS):
+    def __init__(self, sources, parser):
         """Initializes the loader."""
-        super(Loader, self).__init__(sources, parser, autoescape_funcs)
+        super(Loader, self).__init__(sources, parser)
         self._cache = {}
     
     def clear_cache(self, ):
