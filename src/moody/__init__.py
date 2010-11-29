@@ -1,7 +1,7 @@
 """
 The moody templating system.
 
-Fast and extensible. It gets the job done.
+Fast and powerful. It gets the job done.
 
 Developed by Dave Hall <dave@etianen.com>.
 """
