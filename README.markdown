@@ -3,6 +3,11 @@ moody-templates
 
 **moody-templates** is a fast and powerful template engine for Python 3.
 
+    {% for name in ["world", "dave",] %}
+        Hello {{name}}
+    {% endfor %}
+
+
 Features
 --------
 
