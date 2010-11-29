@@ -107,7 +107,15 @@ class TemplateFragment:
         """Initializes the TemplateFragment."""
         self._nodes = nodes
         self._name = name
-
+    
+    def _render_to_sub_context(self, context, meta):
+        """Renders the template to the given context."""
+        sub_params = context.params.copy()
+        sub_meta = context.meta.copy()
+        sub_meta.update(meta)
+        sub_context = Context(sub_params, sub_meta, context.buffer)
+        self._render_to_context(sub_context)
+    
     def _render_to_context(self, context):
         """Renders the template to the given context."""
         for node in self._nodes:
@@ -131,12 +139,11 @@ class Template(TemplateFragment):
         self._params = params
         self._meta = meta
 
-    def _render_to_sub_context(self, context, params, meta):
+    def _render_to_sub_context(self, context, meta):
         """Renders the template to the given context."""
         # Generate the params.
         sub_params = self._params.copy()
         sub_params.update(context.params)
-        sub_params.update(params)
         # Generate the meta.
         sub_meta = self._meta.copy()
         sub_meta.update(meta)

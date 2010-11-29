@@ -124,7 +124,7 @@ class IncludeNode(Node):
     def render(self, context):
         """Renders the IncludeNode."""
         template = get_template(context, self.expression.eval(context))
-        template._render_to_sub_context(context, {}, {})
+        template._render_to_sub_context(context, {})
 
 
 @regex_macro("^include\s+(.+?)$")
@@ -146,17 +146,18 @@ class BlockNode(Node):
     
     def render(self, context):
         """Renders the BlockNode."""
-        # Get the topmost block.
-        block_context = context
-        block = self.block
-        child_context = block_context
+        # Get the block stack.
+        block_stack = [(context, self.block)]
+        child_context = context
         while "__child__" in child_context.meta:
-            child_context = block_context.meta["__child__"]
+            child_context = child_context.meta["__child__"]
             if self.name in child_context.meta["__blocks__"]:
                 block = child_context.meta["__blocks__"][self.name]
                 block_context = child_context
+                block_stack.append((block_context, block))
         # Render the topmost block.
-        block._render_to_context(block_context)
+        block_context, block = block_stack.pop()
+        block._render_to_sub_context(block_context, {"__parent_blocks__": block_stack})
 
 
 @regex_macro("^block\s+([a-zA-Z_][a-zA-Z_\-0-9]*)$")
@@ -164,6 +165,28 @@ def block_macro(parser, name):
     """Macro that implements an inheritable template block."""
     match, block = parser.parse_block("block", "endblock", re.compile("^endblock$|^endblock\s+{}$".format(name)))
     return BlockNode(name, block)
+
+
+class SuperNode(Node):
+    
+    """Nodes that renders the parent block's content."""
+    
+    __slots__ = ()
+    
+    def render(self, context):
+        """Renders the SuperNode."""
+        if "__parent_blocks__" in context.meta:
+            block_stack = context.meta["__parent_blocks__"][:]
+            block_context, block = block_stack.pop()
+            block._render_to_sub_context(block_context, {"__parent_blocks__": block_stack})
+        else:
+            raise ValueError("Cannot render parent block, as this template does not extend another.")
+    
+    
+@regex_macro("^super$")
+def super_macro(parser):
+    """Macro that renders the parent block's content."""
+    return SuperNode()
 
 
 class ExtendsNode(Node):
@@ -184,7 +207,7 @@ class ExtendsNode(Node):
         context.meta["__blocks__"] = blocks
         # Render the parent template with my blocks.
         template = get_template(context, self.expression.eval(context))
-        template._render_to_sub_context(context, {}, {"__child__": context})
+        template._render_to_sub_context(context, {"__child__": context})
 
 
 @regex_macro("^extends\s+(.+?)$")
@@ -198,4 +221,4 @@ def extends_macro(parser, expression):
 
 
 # The set of default macros.
-DEFAULT_MACROS = (if_macro, for_macro, include_macro, block_macro, extends_macro,)
+DEFAULT_MACROS = (if_macro, for_macro, include_macro, block_macro, super_macro, extends_macro,)

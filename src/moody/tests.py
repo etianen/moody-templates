@@ -103,8 +103,11 @@ test_loader = moody.make_loader(
         "override.txt": "Bar",
         "inherit.txt": "{% extends __super__ %}{% block surname %}Foo{% endblock %}",
         "scoped_meta_parent.txt": "{% block name %}{{__name__}}{% endblock %}",
-        "scoped_meta_child.txt": "{% extends 'scoped_meta_parent.txt' %}{% block name %}{{__name__}}{% endblock %}",
-        "scoped_meta_grandchild.txt": "{% extends 'scoped_meta_child.txt' %}{% block name %}{{__name__}}{% endblock %}",
+        "scoped_meta_child.txt": "{% extends 'scoped_meta_parent.txt' %}{% block name %}{% super %} {{__name__}}{% endblock %}",
+        "scoped_meta_grandchild.txt": "{% extends 'scoped_meta_child.txt' %}{% block name %}{% super %} {{__name__}}{% endblock %}",
+        "super_block_parent.txt": "{% block name %}Dave{% endblock %}",
+        "super_block_child.txt": "{% extends 'super_block_parent.txt' %}{% block name %}{% super %} Hall{% endblock %}",
+        "super_block_grandchild.txt": "{% extends 'super_block_child.txt' %}{% block name %}{% super %} the great{% endblock %}",
     }), MemorySource({
         "simple.txt": "{{test}}",
         "overide.txt": "Foo",
@@ -156,8 +159,13 @@ class TestLoader(unittest.TestCase):
         
     def testScopedMeta(self):
         self.assertEqual(test_loader.render("scoped_meta_parent.txt"), "scoped_meta_parent.txt")
-        self.assertEqual(test_loader.render("scoped_meta_child.txt"), "scoped_meta_child.txt")
-        self.assertEqual(test_loader.render("scoped_meta_grandchild.txt"), "scoped_meta_grandchild.txt")
+        self.assertEqual(test_loader.render("scoped_meta_child.txt"), "scoped_meta_parent.txt scoped_meta_child.txt")
+        self.assertEqual(test_loader.render("scoped_meta_grandchild.txt"), "scoped_meta_parent.txt scoped_meta_child.txt scoped_meta_grandchild.txt")
+        
+    def testSuperBlock(self):
+        self.assertEqual(test_loader.render("super_block_parent.txt"), "Dave")
+        self.assertEqual(test_loader.render("super_block_child.txt"), "Dave Hall")
+        self.assertEqual(test_loader.render("super_block_grandchild.txt"), "Dave Hall the great")
 
         
 class TestDirectorySource(unittest.TestCase):
