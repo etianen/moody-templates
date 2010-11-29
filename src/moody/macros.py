@@ -106,7 +106,7 @@ def get_template(context, template):
     if isinstance(template, Template):
         return template
     if isinstance(template, str):
-        loader = context.params.get("__loader__", context.meta.get("__loader__", moody.default_loader))
+        loader = context.meta.get("__loader__", moody.default_loader)
         return loader.load(template)
     raise TypeError("Expected a Template or a str, found {!r}.".format(template))
 

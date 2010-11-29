@@ -34,7 +34,7 @@ class ExpressionNode(Node):
         """Renders the ExpressionNode."""
         value = str(self.expression.eval(context))
         # Apply autoescaping.
-        autoescape = context.params.get("__autoescape__", context.meta.get("__autoescape__"))
+        autoescape = context.meta.get("__autoescape__")
         if autoescape:
             value = autoescape(value)
         # Write the value.
