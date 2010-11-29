@@ -241,9 +241,13 @@ class SuperNode(Node):
         """Renders the SuperNode."""
         if "__parent_blocks__" in context.meta:
             block_stack = context.meta["__parent_blocks__"][:]
-            block_context, block = block_stack.pop()
-            sub_context = block_context.sub_context(meta={"__parent_blocks__": block_stack})
-            block._render_to_context(sub_context)
+            try:
+                block_context, block = block_stack.pop()
+            except Indexerror:
+                pass
+            else:
+                sub_context = block_context.sub_context(meta={"__parent_blocks__": block_stack})
+                block._render_to_context(sub_context)
     
     
 @regex_macro("^super$")
@@ -258,7 +262,7 @@ class ExtendsNode(Node):
 
     __slots__ = ("expression", "block_nodes",)
 
-    def __init__(self, expression, block_nodes):
+    def __init__(self, expression, block_nodes,):
         """Initializes the ExtendsNode."""
         self.expression = expression
         self.block_nodes = block_nodes
@@ -266,8 +270,7 @@ class ExtendsNode(Node):
     def render(self, context):
         """Renders the ExtendsNode."""
         # Create a summary of my blocks.
-        blocks = {block_node.name: block_node.block for block_node in self.block_nodes}
-        context.meta["__blocks__"] = blocks
+        context.meta["__blocks__"] = self.block_nodes
         # Render the parent template with my blocks.
         template = get_template(context, self.expression.eval(context))
         template._render_to_sub_context(context, {"__child__": context})
@@ -279,7 +282,12 @@ def extends_macro(parser, expression):
     # Parse the rest of the template.
     nodes = parser.parse_all_nodes()
     # Go through the nodes, looking for all block tags.
-    block_nodes = [node for node in nodes if isinstance(node, BlockNode)]
+    block_nodes = {}
+    for node in nodes:
+        if isinstance(node, BlockNode):
+            if node.name in block_nodes:
+                raise SyntaxError("Multiple blocks named {!r} are not allowed in a child template.".format(node.name))
+            block_nodes[node.name] = node.block
     return ExtendsNode(Expression(expression), block_nodes)
 
 

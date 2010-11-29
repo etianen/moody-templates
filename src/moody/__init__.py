@@ -48,6 +48,5 @@ def make_loader(*sources, loader_cls=Loader, parser=default_parser, **kwargs):
 
 default_loader = make_loader(*sys.path)
     
-# TODO: allow non-output nodes in between child blocks
-# TODO: only allow extends node to be first
+# TODO: make loader.compile method
 # TODO: test error reporting

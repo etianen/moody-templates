@@ -118,6 +118,9 @@ test_loader = moody.make_loader(
         "super_block_parent.txt": "{% block name %}Dave{% endblock %}",
         "super_block_child.txt": "{% extends 'super_block_parent.txt' %}{% block name %}{% super %} Hall{% endblock %}",
         "super_block_grandchild.txt": "{% extends 'super_block_child.txt' %}{% block name %}{% super %} the great{% endblock %}",
+        "multi_parent_block_parent.txt": "{% block name %}foo{% endblock %}{% block name %}bar{% endblock %}",
+        "multi_parent_block_child.txt": "{% extends 'multi_parent_block_parent.txt' %}{% block name %}{% super %}bar{% endblock %}",
+        "multi_parent_block_child_error.txt": "{% extends 'multi_parent_block_parent.txt' %}{% block name %}bar{% endblock %}{% block name %}bar{% endblock %}",
     }), MemorySource({
         "simple.txt": "{{test}}",
         "overide.txt": "Foo",
@@ -176,6 +179,11 @@ class TestLoader(unittest.TestCase):
         self.assertEqual(test_loader.render("super_block_parent.txt"), "Dave")
         self.assertEqual(test_loader.render("super_block_child.txt"), "Dave Hall")
         self.assertEqual(test_loader.render("super_block_grandchild.txt"), "Dave Hall the great")
+        
+    def testMultiParentBlocks(self):
+        self.assertEqual(test_loader.render("multi_parent_block_parent.txt"), "foobar")
+        self.assertEqual(test_loader.render("multi_parent_block_child.txt"), "foobarbarbar")
+        self.assertRaises(TemplateCompileError, lambda: test_loader.load("multi_parent_block_child_error.txt"))
 
         
 class TestDirectorySource(unittest.TestCase):
