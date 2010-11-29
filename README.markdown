@@ -30,7 +30,7 @@ found at the [main project website][].
 You can keep up to date with the latest announcements by joining the
 [moody-templates discussion group][].
 
-moody-templates discussion group]: http://groups.google.com/group/moody-templates
+[moody-templates discussion group]: http://groups.google.com/group/moody-templates
     "moody-templates Google Group"
 
     
