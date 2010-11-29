@@ -4,7 +4,6 @@
 import re
 from collections import Sequence
 from abc import ABCMeta, abstractmethod
-from contextlib import contextmanager
 
 from moody.errors import TemplateRenderError
     
@@ -13,14 +12,27 @@ class Context:
 
     """The state of a template during render time."""
 
-    __slots__ = ("params", "meta", "buffer",)
+    __slots__ = ("params", "meta", "buffer")
 
     def __init__(self, params, meta, buffer):
         """Initializes the Context."""
         self.params = params
         self.meta = meta
         self.buffer = buffer
+        
+    def sub_context(self, params=None, meta=None):
+        """
+        Creates a new subcontext that is scoped to a block.
 
+        Changes to the sub-context will not affect the parent context, although
+        the buffer is shared.
+        """
+        sub_params = self.params.copy()
+        sub_params.update(params or {})
+        sub_meta = self.meta.copy()
+        sub_meta.update(meta or {})
+        return Context(sub_params, sub_meta, self.buffer)
+        
     def read(self):
         """Reads the contents of the buffer as a string."""
         return "".join(self.buffer)
@@ -108,14 +120,6 @@ class TemplateFragment:
         self._nodes = nodes
         self._name = name
     
-    def _render_to_sub_context(self, context, meta):
-        """Renders the template to the given context."""
-        sub_params = context.params.copy()
-        sub_meta = context.meta.copy()
-        sub_meta.update(meta)
-        sub_context = Context(sub_params, sub_meta, context.buffer)
-        self._render_to_context(sub_context)
-    
     def _render_to_context(self, context):
         """Renders the template to the given context."""
         for node in self._nodes:
@@ -148,8 +152,7 @@ class Template(TemplateFragment):
         sub_meta = self._meta.copy()
         sub_meta.update(meta)
         # Generate the sub context.
-        sub_context = Context(sub_params, sub_meta, context.buffer)
-        self._render_to_context(sub_context)
+        self._render_to_context(context.sub_context(sub_params, sub_meta))
 
     def render(self, **params):
         """Renders the template, returning the string result."""

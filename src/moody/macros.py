@@ -157,7 +157,8 @@ class BlockNode(Node):
                 block_stack.append((block_context, block))
         # Render the topmost block.
         block_context, block = block_stack.pop()
-        block._render_to_sub_context(block_context, {"__parent_blocks__": block_stack})
+        sub_context = block_context.sub_context(meta={"__parent_blocks__": block_stack})
+        block._render_to_context(sub_context)
 
 
 @regex_macro("^block\s+([a-zA-Z_][a-zA-Z_\-0-9]*)$")
@@ -178,7 +179,8 @@ class SuperNode(Node):
         if "__parent_blocks__" in context.meta:
             block_stack = context.meta["__parent_blocks__"][:]
             block_context, block = block_stack.pop()
-            block._render_to_sub_context(block_context, {"__parent_blocks__": block_stack})
+            sub_context = block_context.sub_context(meta={"__parent_blocks__": block_stack})
+            block._render_to_context(sub_context)
     
     
 @regex_macro("^super$")
