@@ -14,7 +14,7 @@ class TemplateError(Exception):
     def __str__(self):
         """Returns a string representation."""
         message = super(TemplateError, self).__str__()
-        return "{} [From {!r} on line {}]".format(message, self.template_name, self.template_lineno)
+        return "{} [{!r} on line {}]".format(message, self.template_name, self.template_lineno)
 
 
 class TemplateRenderError(TemplateError):
