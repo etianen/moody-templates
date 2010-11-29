@@ -22,6 +22,10 @@ class TestRender(unittest.TestCase):
         self.assertEqual(moody.render("{% set 'foo', as test1, %}{{test1}}"), "foo")
         self.assertRaises(TemplateRenderError, lambda: moody.render("{% set 'foo', as foo, bar %}"))
         self.assertRaises(TemplateRenderError, lambda: moody.render("{% set 'foo', 'bar'  as bar, %}"))
+    
+    def testImportMacro(self):
+        self.assertEqual(moody.render("{% from operator import add %}{{add(1,1)}}"), "2")
+        self.assertEqual(moody.render("{% import operator %}{{operator.add(1,1)}}"), "2")
         
     def testIfMacro(self):
         # Test single if.

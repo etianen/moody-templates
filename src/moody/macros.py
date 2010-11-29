@@ -60,6 +60,26 @@ class RenderNode(Node):
 def render_macro(parser, expression):
     """Macro that allows an expression to be rendered without autoescaping."""
     return RenderNode(Expression(expression))
+    
+    
+class ImportNode(Node):
+    
+    """A node that executes the given import expression."""
+    
+    __slots__ = ("statement",)
+    
+    def __init__(self, statement):
+        self.statement = statement
+        
+    def render(self, context):
+        """Renders the ImportNode."""
+        exec(self.statement, context.meta, context.params)
+        
+        
+@regex_macro("(^from\s+.+?\s+import\s+.+?$|^import\s+.+?$)")
+def import_macro(parser, statement):
+    "Macro that implements an import statment."
+    return ImportNode(compile(statement, "<string>", "exec"))
 
 
 class IfNode(Node):
@@ -264,4 +284,4 @@ def extends_macro(parser, expression):
 
 
 # The set of default macros.
-DEFAULT_MACROS = (set_macro, render_macro, if_macro, for_macro, include_macro, block_macro, super_macro, extends_macro,)
+DEFAULT_MACROS = (set_macro, render_macro, import_macro, if_macro, for_macro, include_macro, block_macro, super_macro, extends_macro,)
