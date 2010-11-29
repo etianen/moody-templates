@@ -13,6 +13,7 @@ Features
 
 *   Easy to use.
 *   High performance.
+*   Autoescaping.
 *   Template inheritance.
 *   Supports native python expressions.
 *   Extensible template macros.
