@@ -34,7 +34,7 @@ class ExpressionNode(Node):
         """Renders the ExpressionNode."""
         value = str(self.expression.eval(context))
         # Apply autoescaping.
-        autoescape = context.params.get("__autoescape__")
+        autoescape = context.params.get("__autoescape__", context.meta.get("__autoescape__"))
         if autoescape:
             value = autoescape(value)
         # Write the value.
@@ -87,10 +87,9 @@ class ParserRun:
         with macro_name and nodes as positional arguments. The end_chunk handler
         must then process the nodes and return a result.
         """
-        lineno = 0
         nodes = []
-        try:
-            for lineno, token_type, token_contents in self.tokens:
+        for lineno, token_type, token_contents in self.tokens:
+            try:
                 if token_type == "STRING":
                     node = StringNode(token_contents)
                 elif token_type == "EXPRESSION":
@@ -109,12 +108,12 @@ class ParserRun:
                 # Set the node line number.
                 node.lineno = lineno
                 nodes.append(node)
-            # No unknown macro.
-            return end_chunk_handler(None, nodes)
-        except TemplateCompileError:
-            raise
-        except Exception as ex:
-            raise TemplateCompileError(str(ex), self.name, lineno)
+            except TemplateCompileError:
+                raise
+            except Exception as ex:
+                raise TemplateCompileError(str(ex), self.name, lineno)
+        # No unknown macro.
+        return end_chunk_handler(None, nodes)
         
     def parse_all_nodes(self):
         """Parses all remaining nodes."""
@@ -153,14 +152,15 @@ class Parser:
         """Initializes the Parser."""
         self._macros = macros
         
-    def compile(self, template, name="<string>", default_params=None, ):
+    def compile(self, template, name="__string__", params=None, meta=None):
         """Compiles the template."""
+        meta = meta or {}
+        meta["__name__"] = name
         # Get the default params.
-        default_params = default_params or {}
-        default_params.setdefault("__name__", name)
+        params = params or {}
         # Render the main block.
         nodes = ParserRun(template, name, self._macros).parse_all_nodes()
-        return Template(nodes, name, default_params)
+        return Template(nodes, name, params, meta)
         
         
 # The default parser, using the default set of macros.

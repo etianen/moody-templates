@@ -13,23 +13,13 @@ class Context:
 
     """The state of a template during render time."""
 
-    __slots__ = ("params", "buffer",)
+    __slots__ = ("params", "meta", "buffer",)
 
-    def __init__(self, params, buffer):
+    def __init__(self, params, meta, buffer):
         """Initializes the Context."""
         self.params = params
+        self.meta = meta
         self.buffer = buffer
-
-    @contextmanager
-    def block(self):
-        """
-        Creates a new subcontext that is scoped to a block.
-
-        Changes to the sub-context will not affect the parent context, although
-        the buffer is shared.
-        """
-        sub_context = Context(self.params.copy(), self.buffer)
-        yield sub_context
 
     def read(self):
         """Reads the contents of the buffer as a string."""
@@ -93,7 +83,7 @@ class Expression:
 
     def eval(self, context):
         """Evaluates the expression using the given context, returning the result."""
-        return eval(self.compiled_expression, {}, context.params)
+        return eval(self.compiled_expression, context.meta, context.params)
 
 
 class Node(metaclass=ABCMeta):
@@ -133,30 +123,28 @@ class Template(TemplateFragment):
 
     """A compiled template."""
 
-    __slots__ = ("_default_params",)
+    __slots__ = ("_params", "_meta",)
 
-    def __init__(self, nodes, name, default_params):
+    def __init__(self, nodes, name, params, meta):
         """Initializes the template."""
         super(Template, self).__init__(nodes, name)
-        self._name = name
-        self._default_params = default_params
+        self._params = params
+        self._meta = meta
 
     def _render_to_context(self, context):
         """Renders the template to the given context."""
-        for name, value in self._default_params.items():
-            if name.startswith("__") and name.endswith("__"):
-                context.params[name] = value
-            else:
-                context.params.setdefault(name, value)
-        super(Template, self)._render_to_context(context)
+        sub_params = self._params.copy()
+        sub_params.update(context.params)
+        sub_context = Context(sub_params, self._meta, context.buffer)
+        super(Template, self)._render_to_context(sub_context)
 
     def render(self, **params):
         """Renders the template, returning the string result."""
         # Create the params.
-        context_params = self._default_params.copy()
+        context_params = self._params.copy()
         context_params.update(params)
         # Create the context.
-        context = Context(params, [])
+        context = Context(context_params, self._meta, [])
         # Render the template.
-        self._render_to_context(context)
+        super(Template, self)._render_to_context(context)
         return context.read()

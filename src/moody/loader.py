@@ -111,12 +111,12 @@ class DebugLoader:
         for source in self._sources:
             template_src = source.load_source(template_name)
             if template_src is not None:
-                default_params = {
+                meta = {
                     "__autoescape__": autoescape,
                     "__loader__": self,
                     "__super__": templates and templates[-1] or None,
                 }
-                templates.append(self._parser.compile(template_src, template_name, default_params))
+                templates.append(self._parser.compile(template_src, template_name, {}, meta))
         return templates
     
     def load(self, *template_names):        

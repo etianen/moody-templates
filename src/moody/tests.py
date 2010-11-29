@@ -88,7 +88,7 @@ class TestRender(unittest.TestCase):
         self.assertEqual(template1.render(__autoescape__=lambda v: "bar"), "bar")
         
     def testDefaultParams(self):
-        template1 = moody.compile("{{test}}", default_params={"test": "foo"})
+        template1 = moody.compile("{{test}}", params={"test": "foo"})
         self.assertEqual(template1.render(), "foo")
         self.assertEqual(template1.render(test="bar"), "bar")
 
@@ -101,10 +101,12 @@ test_loader = moody.make_loader(
         "child.txt": "{% extends 'parent.txt' %}{% block name %}Dave {% block surname %}Hall{% endblock %}{% endblock %}",
         "grandchild.txt": "{% extends 'child.txt' %}{% block surname %}Foo{% endblock surname %}",
         "override.txt": "Bar",
-        "inherit.txt": "{% extends __super__ %}{% block name %}Dave{% endblock %}",
+        "inherit.txt": "{% extends __super__ %}{% block surname %}Foo{% endblock %}",
     }), MemorySource({
         "simple.txt": "{{test}}",
         "overide.txt": "Foo",
+        "inherit.txt": "{% extends __super__ %}{% block name %}Dave {% block surname %}Hall{% endblock %}{% endblock %}",
+    }), MemorySource({
         "inherit.txt": "Hello {% block name %}world{% endblock %}",
     })
 )
@@ -146,8 +148,8 @@ class TestLoader(unittest.TestCase):
     def testOverride(self):
         self.assertEqual(test_loader.render("override.txt"), "Bar")
         
-    def testInherit(self):
-        self.assertEqual(test_loader.render("inherit.txt"), "Hello Dave")
+    def testSelfInherit(self):
+        self.assertEqual(test_loader.render("inherit.txt"), "Hello Dave Foo")
 
         
 class TestDirectorySource(unittest.TestCase):

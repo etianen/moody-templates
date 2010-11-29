@@ -106,7 +106,7 @@ def get_template(context, template):
     if isinstance(template, Template):
         return template
     if isinstance(template, str):
-        loader = context.params.get("__loader__", moody.default_loader)
+        loader = context.params.get("__loader__", context.meta.get("__loader__", moody.default_loader))
         return loader.load(template)
     raise TypeError("Expected a Template or a str, found {!r}.".format(template))
 
@@ -124,8 +124,7 @@ class IncludeNode(Node):
     def render(self, context):
         """Renders the IncludeNode."""
         template = get_template(context, self.expression.eval(context))
-        with context.block() as sub_context:
-            template._render_to_context(sub_context)
+        template._render_to_context(context)
 
 
 @regex_macro("^include\s+(.+?)$")
@@ -151,8 +150,7 @@ class BlockNode(Node):
         stack = context.params.get("__blocks__", {}).get(self.name, [])
         stack.append(self.block)
         # Render the bottommost block.
-        with context.block() as sub_context:
-            stack[0]._render_to_context(sub_context)
+        stack[0]._render_to_context(context)
 
 
 @regex_macro("^block\s+([a-zA-Z_][a-zA-Z_\-0-9]*)$")
@@ -181,8 +179,7 @@ class ExtendsNode(Node):
         for block_node in self.block_nodes:
             block_info.setdefault(block_node.name, []).append(block_node.block)
         # Render the parent template with my blocks.
-        with context.block() as sub_context:
-            template._render_to_context(sub_context)
+        template._render_to_context(context)
 
 
 @regex_macro("^extends\s+(.+?)$")
