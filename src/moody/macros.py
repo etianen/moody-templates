@@ -179,8 +179,6 @@ class SuperNode(Node):
             block_stack = context.meta["__parent_blocks__"][:]
             block_context, block = block_stack.pop()
             block._render_to_sub_context(block_context, {"__parent_blocks__": block_stack})
-        else:
-            raise ValueError("Cannot render parent block, as this template does not extend another.")
     
     
 @regex_macro("^super$")
