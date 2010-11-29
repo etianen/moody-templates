@@ -48,9 +48,8 @@ def make_loader(*sources, loader_cls=Loader, parser=default_parser, **kwargs):
 
 default_loader = make_loader(*sys.path)
     
-
-# TODO: render block.super
-# TODO: set node (then use to test name expansion properly)
 # TODO: import node (two types)
 # TODO: render node
+# TODO: allow non-output nodes in between child blocks
+# TODO: only allow extends node to be first
 # TODO: test error reporting

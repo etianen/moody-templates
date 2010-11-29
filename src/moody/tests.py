@@ -15,6 +15,13 @@ class TestRender(unittest.TestCase):
         
     def testExpressionTag(self):
         self.assertEqual(moody.render("{{'Hello world'}}"), "Hello world")
+    
+    def testSetMacro(self):
+        self.assertEqual(moody.render("{% set 'foo' as test %}{{test}}"), "foo")
+        self.assertEqual(moody.render("{% set 'foo', 'bar', as test1, test2 %}{{test1}}{{test2}}"), "foobar")
+        self.assertEqual(moody.render("{% set 'foo', as test1, %}{{test1}}"), "foo")
+        self.assertRaises(TemplateRenderError, lambda: moody.render("{% set 'foo', as foo, bar %}"))
+        self.assertRaises(TemplateRenderError, lambda: moody.render("{% set 'foo', 'bar'  as bar, %}"))
         
     def testIfMacro(self):
         # Test single if.

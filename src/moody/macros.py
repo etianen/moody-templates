@@ -19,6 +19,28 @@ def regex_macro(regex):
     return decorator
 
 
+class SetNode(Node):
+    
+    """A nodes that sets a parameter in the context."""
+    
+    __slots__ = ("expression", "name",)
+    
+    def __init__(self, expression, name):
+        """Initializes the SetNode."""
+        self.expression = expression
+        self.name = name
+        
+    def render(self, context):
+        """Renders the SetNode."""
+        self.name.set(context, self.expression.eval(context))
+        
+
+@regex_macro("^set\s+(.+?)\s+as\s+(.+?)$")
+def set_macro(parser, expression, name):
+    """Macro that allows setting of a value in the context."""
+    return SetNode(Expression(expression), Name(name))
+
+
 class IfNode(Node):
     
     """A node that implements an 'if' expression."""
@@ -221,4 +243,4 @@ def extends_macro(parser, expression):
 
 
 # The set of default macros.
-DEFAULT_MACROS = (if_macro, for_macro, include_macro, block_macro, super_macro, extends_macro,)
+DEFAULT_MACROS = (set_macro, if_macro, for_macro, include_macro, block_macro, super_macro, extends_macro,)

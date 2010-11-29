@@ -52,7 +52,7 @@ class Name:
         if "," in name:
             self.names = [name.strip() for name in name.split(",")]
             if not self.names[-1]:
-                names.pop()
+                self.names.pop()
             self.is_expandable = True
         else:
             self.names = [name]
