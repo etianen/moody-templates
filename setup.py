@@ -8,13 +8,11 @@ from setuptools import setup, find_packages
 
 setup(
     name="moody-templates",
-    version="1.0",
+    version="0.9",
     description="",
     author="Dave Hall",
     author_email="dave@etianen.com",
-    url="http://github.com/etianen/django-reversion",
-    download_url="http://github.com/downloads/etianen/django-reversion/django-reversion-1.3.2.tar.gz",
-    zip_safe=False,
+    url="http://github.com/etianen/moody-templates",
     packages=find_packages("src"),
     package_dir={"": "src"},
     test_suite="moody.tests",
