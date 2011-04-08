@@ -2,8 +2,6 @@
 
 
 import re
-from collections import Sequence
-from abc import ABCMeta, abstractmethod
 
 from moody.errors import TemplateRenderError
     
@@ -98,17 +96,6 @@ class Expression:
         return eval(self.compiled_expression, context.meta, context.params)
 
 
-class Node(metaclass=ABCMeta):
-
-    """A node in a compiled template."""
-
-    __slots__ = ("lineno",)
-
-    @abstractmethod
-    def render(self, context):
-        """Renders the node using the given context."""
-
-
 class TemplateFragment:
 
     """A fragment of a template."""
@@ -122,13 +109,13 @@ class TemplateFragment:
     
     def _render_to_context(self, context):
         """Renders the template to the given context."""
-        for node in self._nodes:
+        for lineno, node in self._nodes:
             try:
-                node.render(context)
+                node(context)
             except TemplateRenderError:
                 raise
             except Exception as ex:
-                raise TemplateRenderError(str(ex), self._name, node.lineno) from ex
+                raise TemplateRenderError(str(ex), self._name, lineno) from ex
 
 
 class Template(TemplateFragment):

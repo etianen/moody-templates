@@ -1,44 +1,27 @@
 """The main template parser."""
 
 import os, re
+from functools import partial
 
 from moody.errors import TemplateCompileError
-from moody.base import Expression, Node, Template, TemplateFragment
+from moody.base import Expression, Template, TemplateFragment
 from moody.macros import DEFAULT_MACROS
-
         
-class StringNode(Node):
-    
+        
+def string_node(value, context):
     """A node containing a static string value."""
-    
-    __slots__ = ("value",)
-    
-    def __init__(self, value):
-        """Initializes the StringNode."""
-        self.value = value
-        
-    def render(self, context):
-        """Renders the StringNode."""
-        context.buffer.append(self.value)
+    context.buffer.append(value)
 
 
-class ExpressionNode(Node):
-    
-    __slots__ = ("expression",)
-    
-    def __init__(self, expression):
-        """Initializes the ExpressionNode."""
-        self.expression = Expression(expression)
-        
-    def render(self, context):
-        """Renders the ExpressionNode."""
-        value = str(self.expression.eval(context))
-        # Apply autoescaping.
-        autoescape = context.meta.get("__autoescape__")
-        if autoescape:
-            value = autoescape(value)
-        # Write the value.
-        context.buffer.append(value)
+def expression_node(expression, context):
+    """A node that evaluates and prints the given expression."""
+    value = str(expression.eval(context))
+    # Apply autoescaping.
+    autoescape = context.meta.get("__autoescape__")
+    if autoescape:
+        value = autoescape(value)
+    # Write the value.
+    context.buffer.append(value)
 
 
 RE_TOKEN = re.compile("{#.+?#}|{{\s*(.*?)\s*}}|{%\s*(.*?)\s*%}", re.DOTALL)
@@ -73,13 +56,14 @@ class ParserRun:
     
     """The state held by a parser during a run."""
     
-    __slots__ = ("tokens", "name", "macros",)
+    __slots__ = ("tokens", "name", "macros", "meta",)
     
     def __init__(self, template, name, macros):
         """Initializes the ParserRun."""
         self.tokens = tokenize(template)
         self.name = name
         self.macros = macros
+        self.meta = {}
     
     def parse_template_chunk(self, end_chunk_handler):
         """
@@ -95,9 +79,9 @@ class ParserRun:
         for lineno, token_type, token_contents in self.tokens:
             try:
                 if token_type == "STRING":
-                    node = StringNode(token_contents)
+                    node = partial(string_node, token_contents)
                 elif token_type == "EXPRESSION":
-                    node = ExpressionNode(token_contents)
+                    node = partial(expression_node, Expression(token_contents))
                 elif token_type == "MACRO":
                     # Process macros.
                     node = None
@@ -110,8 +94,7 @@ class ParserRun:
                 else:
                     assert False, "{!r} is not a valid token type.".format(token_type)
                 # Set the node line number.
-                node.lineno = lineno
-                nodes.append(node)
+                nodes.append((lineno, node))
             except TemplateCompileError:
                 raise
             except Exception as ex:

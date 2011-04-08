@@ -1,9 +1,10 @@
 """The default built-in macros."""
 
 import re
+from functools import partial
 
 import moody
-from moody.base import Node, Expression, Name, Template
+from moody.base import Expression, Name, Template
 
 
 def regex_macro(regex):
@@ -17,90 +18,49 @@ def regex_macro(regex):
             return None
         return wrapper
     return decorator
-
-
-class SetNode(Node):
-    
-    """A node that sets a parameter in the context."""
-    
-    __slots__ = ("expression", "name",)
-    
-    def __init__(self, expression, name):
-        """Initializes the SetNode."""
-        self.expression = expression
-        self.name = name
         
-    def render(self, context):
-        """Renders the SetNode."""
-        self.name.set(context, self.expression.eval(context))
+        
+def set_node(expression, name, context):
+    """A node that sets a parameter in the context."""
+    name.set(context, expression.eval(context))
         
 
 @regex_macro("^set\s+(.+?)\s+as\s+(.+?)$")
 def set_macro(parser, expression, name):
     """Macro that allows setting of a value in the context."""
-    return SetNode(Expression(expression), Name(name))
-    
-    
-class RenderNode(Node):
-    
+    return partial(set_node, Expression(expression), Name(name))
+
+
+def render_node(expression, context):
     """A node that renders an expression without autoescaping."""
-    
-    __slots__ = ("expression",)
-    
-    def __init__(self, expression):
-        """Initializes the RenderNode."""
-        self.expression = expression
-        
-    def render(self, context):
-        """Renders the RenderNode."""
-        context.buffer.append(str(self.expression.eval(context)))
+    context.buffer.append(str(expression.eval(context)))
         
         
 @regex_macro("^render\s+(.+?)$")
 def render_macro(parser, expression):
     """Macro that allows an expression to be rendered without autoescaping."""
-    return RenderNode(Expression(expression))
-    
-    
-class ImportNode(Node):
-    
+    return partial(render_node, Expression(expression))
+
+
+def import_node(statement, context):
     """A node that executes the given import expression."""
-    
-    __slots__ = ("statement",)
-    
-    def __init__(self, statement):
-        self.statement = statement
-        
-    def render(self, context):
-        """Renders the ImportNode."""
-        exec(self.statement, context.meta, context.params)
+    exec(statement, context.meta, context.params)
         
         
 @regex_macro("(^from\s+.+?\s+import\s+.+?$|^import\s+.+?$)")
 def import_macro(parser, statement):
     "Macro that implements an import statment."
-    return ImportNode(compile(statement, "<string>", "exec"))
+    return partial(import_node, compile(statement, "<string>", "exec"))
 
 
-class IfNode(Node):
-    
+def if_node(clauses, else_block, context):
     """A node that implements an 'if' expression."""
-    
-    __slots__ = ("clauses", "else_block",)
-    
-    def __init__(self, clauses, else_block):
-        """Initializes the IfNode."""
-        self.clauses = clauses
-        self.else_block = else_block
-        
-    def render(self, context):
-        """Renders the IfNode."""
-        for expression, block in self.clauses:
-            if expression.eval(context):
-                block._render_to_context(context)
-                return
-        if self.else_block:
-            self.else_block._render_to_context(context)
+    for expression, block in clauses:
+        if expression.eval(context):
+            block._render_to_context(context)
+            return
+    if else_block:
+        else_block._render_to_context(context)
 
 
 RE_IF_CLAUSE = re.compile("^(elif) (.+?)$|^(else)$|^(endif)$")
@@ -128,27 +88,15 @@ def if_macro(parser, expression):
             else_tag = True
         elif endif_flag:
             break
-    return IfNode(clauses, else_block)
+    return partial(if_node, clauses, else_block)
     
-
-class ForNode(Node):
     
+def for_node(name, expression, block, context):
     """A node that implements a 'for' loop."""
-    
-    __slots__ = ("name", "expression", "block",)
-    
-    def __init__(self, name, expression, block):
-        """Initializes the ForNode."""
-        self.name = name
-        self.expression = expression
-        self.block = block
-        
-    def render(self, context):
-        """Renders the ForNode."""
-        items = self.expression.eval(context)
-        for item in items:
-            self.name.set(context, item)
-            self.block._render_to_context(context)
+    items = expression.eval(context)
+    for item in items:
+        name.set(context, item)
+        block._render_to_context(context)
 
 
 RE_ENDFOR = re.compile("^endfor$")
@@ -157,7 +105,7 @@ RE_ENDFOR = re.compile("^endfor$")
 def for_macro(parser, name, expression):
     """A macro that implements a 'for' loop."""
     match, block = parser.parse_block("for", "endfor", RE_ENDFOR)
-    return ForNode(Name(name), Expression(expression), block)
+    return partial(for_node, Name(name), Expression(expression), block)
     
     
 def get_template(context, template):
@@ -174,106 +122,74 @@ def get_template(context, template):
     raise TypeError("Expected a Template or a str, found {!r}.".format(template))
 
 
-class IncludeNode(Node):
-
-    """Node that implements an 'include' expression."""
-
-    __slots__ = ("expression",)
-
-    def __init__(self, expression):
-        """Initializes the IncludeNode."""
-        self.expression = expression
-
-    def render(self, context):
-        """Renders the IncludeNode."""
-        template = get_template(context, self.expression.eval(context))
-        template._render_to_sub_context(context, {})
+def include_node(expression, context):
+    """A node that implements an 'include' expression."""
+    template = get_template(context, expression.eval(context))
+    template._render_to_sub_context(context, {})
 
 
 @regex_macro("^include\s+(.+?)$")
 def include_macro(parser, expression):
     """Macro that implements an 'include' expression."""
-    return IncludeNode(Expression(expression))
+    return partial(include_node, Expression(expression))
 
 
-class BlockNode(Node):
-
+def block_node(name, block, context):
     """A block of inheritable content."""
-
-    __slots__ = ("name", "block",)
-
-    def __init__(self, name, block):
-        """Initializes the BlockNode."""
-        self.name = name
-        self.block = block
-    
-    def render(self, context):
-        """Renders the BlockNode."""
-        # Get the block stack.
-        block_stack = [(context, self.block)]
-        child_context = context
-        while "__child__" in child_context.meta:
-            child_context = child_context.meta["__child__"]
-            block = child_context.meta["__blocks__"].get(self.name)
-            if block:
-                block_context = child_context
-                block_stack.append((block_context, block))
-        # Render the topmost block.
-        block_context, block = block_stack.pop()
-        sub_context = block_context.sub_context(meta={"__parent_blocks__": block_stack})
-        block._render_to_context(sub_context)
+    # Get the block stack.
+    block_stack = [(context, block)]
+    child_context = context
+    while "__child__" in child_context.meta:
+        child_context = child_context.meta["__child__"]
+        block = child_context.meta["__blocks__"].get(name)
+        if block:
+            block_context = child_context
+            block_stack.append((block_context, block))
+    # Render the topmost block.
+    block_context, block = block_stack.pop()
+    sub_context = block_context.sub_context(meta={"__parent_blocks__": block_stack})
+    block._render_to_context(sub_context)
 
 
 @regex_macro("^block\s+([a-zA-Z_][a-zA-Z_\-0-9]*)$")
 def block_macro(parser, name):
     """Macro that implements an inheritable template block."""
     match, block = parser.parse_block("block", "endblock", re.compile("^endblock$|^endblock\s+{}$".format(name)))
-    return BlockNode(name, block)
+    # Register with the parser.
+    block_meta = parser.meta.get("__blocks__") or parser.meta.setdefault("__blocks__", {})
+    if name in block_meta:
+        raise SyntaxError("Multiple blocks named {!r} are not allowed in a child template.".format(name))
+    block_meta[name] = block
+    # Return the node.
+    return partial(block_node, name, block)
 
 
-class SuperNode(Node):
-    
-    """Nodes that renders the parent block's content."""
-    
-    __slots__ = ()
-    
-    def render(self, context):
-        """Renders the SuperNode."""
-        if "__parent_blocks__" in context.meta:
-            block_stack = context.meta["__parent_blocks__"][:]
-            try:
-                block_context, block = block_stack.pop()
-            except Indexerror:
-                pass
-            else:
-                sub_context = block_context.sub_context(meta={"__parent_blocks__": block_stack})
-                block._render_to_context(sub_context)
+def super_node(context):
+    """A node that renders the parent block's content."""    
+    if "__parent_blocks__" in context.meta:
+        block_stack = context.meta["__parent_blocks__"][:]
+        try:
+            block_context, block = block_stack.pop()
+        except Indexerror:
+            pass
+        else:
+            sub_context = block_context.sub_context(meta={"__parent_blocks__": block_stack})
+            block._render_to_context(sub_context)
     
     
 @regex_macro("^super$")
 def super_macro(parser):
     """Macro that renders the parent block's content."""
-    return SuperNode()
+    return super_node
 
 
-class ExtendsNode(Node):
-
+def extends_node(expression, block_nodes, context):
     """Implements a inherited child template."""
-
-    __slots__ = ("expression", "block_nodes",)
-
-    def __init__(self, expression, block_nodes,):
-        """Initializes the ExtendsNode."""
-        self.expression = expression
-        self.block_nodes = block_nodes
-
-    def render(self, context):
-        """Renders the ExtendsNode."""
-        # Create a summary of my blocks.
-        context.meta["__blocks__"] = self.block_nodes
-        # Render the parent template with my blocks.
-        template = get_template(context, self.expression.eval(context))
-        template._render_to_sub_context(context, {"__child__": context})
+    # Create a summary of my blocks.
+    context.meta["__blocks__"] =  block_nodes
+    # Render the parent template with my blocks.
+    template = get_template(context, expression.eval(context))
+    template._render_to_sub_context(context, {"__child__": context})
 
 
 @regex_macro("^extends\s+(.+?)$")
@@ -282,13 +198,8 @@ def extends_macro(parser, expression):
     # Parse the rest of the template.
     nodes = parser.parse_all_nodes()
     # Go through the nodes, looking for all block tags.
-    block_nodes = {}
-    for node in nodes:
-        if isinstance(node, BlockNode):
-            if node.name in block_nodes:
-                raise SyntaxError("Multiple blocks named {!r} are not allowed in a child template.".format(node.name))
-            block_nodes[node.name] = node.block
-    return ExtendsNode(Expression(expression), block_nodes)
+    block_nodes = parser.meta.get("__blocks__") or parser.meta.setdefault("__blocks__", {})
+    return partial(extends_node, Expression(expression), block_nodes)
 
 
 # The set of default macros.
