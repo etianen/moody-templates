@@ -31,15 +31,15 @@ def set_macro(parser, expression, name):
     return partial(set_node, Expression(expression), Name(name))
 
 
-def render_node(expression, context):
+def print_node(expression, context):
     """A node that renders an expression without autoescaping."""
     context.buffer.append(str(expression.eval(context)))
         
         
-@regex_macro("^render\s+(.+?)$")
-def render_macro(parser, expression):
+@regex_macro("^print\s+(.+?)$")
+def print_macro(parser, expression):
     """Macro that allows an expression to be rendered without autoescaping."""
-    return partial(render_node, Expression(expression))
+    return partial(print_node, Expression(expression))
 
 
 def import_node(statement, context):
@@ -203,4 +203,4 @@ def extends_macro(parser, expression):
 
 
 # The set of default macros.
-DEFAULT_MACROS = (set_macro, render_macro, import_macro, if_macro, for_macro, include_macro, block_macro, super_macro, extends_macro,)
+DEFAULT_MACROS = (set_macro, print_macro, import_macro, if_macro, for_macro, include_macro, block_macro, super_macro, extends_macro,)
