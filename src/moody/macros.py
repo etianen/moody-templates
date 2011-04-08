@@ -214,8 +214,8 @@ class BlockNode(Node):
         child_context = context
         while "__child__" in child_context.meta:
             child_context = child_context.meta["__child__"]
-            if self.name in child_context.meta["__blocks__"]:
-                block = child_context.meta["__blocks__"][self.name]
+            block = child_context.meta["__blocks__"].get(self.name)
+            if block:
                 block_context = child_context
                 block_stack.append((block_context, block))
         # Render the topmost block.

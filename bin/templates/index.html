@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+
+{% block title %}Hello world{% endblock %}
+
+
+{% block header %}Hello world{% endblock %}
+
+
+{% block body %}
+
+    {% if list_items %}
+        <h2>Here is a list</h2>
+        <ul>
+            {% for item in list_items %}
+                <li>{{item}}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+{% endblock %}
