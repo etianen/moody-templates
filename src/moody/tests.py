@@ -192,7 +192,8 @@ class TestLoader(unittest.TestCase):
 class TestDirectorySource(unittest.TestCase):
     
     def testLoad(self):
-        self.assertEqual(moody.default_loader.render("src/moody/__init__.py"), open("src/moody/__init__.py", "r").read())
+        with open("src/moody/__init__.py", "r") as expected:
+            self.assertEqual(moody.default_loader.render("src/moody/__init__.py"), expected.read())
 
 
 class TestErrorReporting(unittest.TestCase):
