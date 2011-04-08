@@ -1,7 +1,6 @@
 """The main template parser."""
 
 import os, re
-from xml.sax.saxutils import escape
 
 from moody.errors import TemplateCompileError
 from moody.base import Expression, Node, Template, TemplateFragment
@@ -143,12 +142,17 @@ class ParserRun:
         return self.parse_template_chunk(end_chunk_handler)
 
 
+def escape_html(value):
+    """Replaces all HTML special characters with the appropriate entities."""
+    return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&#39;")
+
+
 # Default rules for autoescaping templates based on name.
 DEFAULT_AUTOESCAPE_FUNCS = {
-    ".xml": escape,
-    ".xhtml": escape,
-    ".html": escape,
-    ".htm": escape,
+    ".xml": escape_html,
+    ".xhtml": escape_html,
+    ".html": escape_html,
+    ".htm": escape_html,
 }
 
 
