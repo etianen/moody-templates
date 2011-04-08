@@ -17,12 +17,13 @@ def main():
     )
     from django.template import loader
     def benchmark(func):
-        return min(timeit.repeat(func, repeat=3, number=500))
+        return min(timeit.repeat(func, repeat=3, number=1000))
     # Test the cached rendering.
     def render_cached():
         loader.render_to_string("index.html", {
             "list_items": list(range(100)),
         })
+    render_cached()
     print("Cached rendering:   {time}".format(time=benchmark(render_cached)))
     # Test the uncached rendering.
     def render_uncached():
