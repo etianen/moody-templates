@@ -9,7 +9,7 @@ from moody.base import Expression, Name, Template
 
 def regex_macro(regex):
     """A decorator that defines a macro function."""
-    regex = re.compile(regex)
+    regex = re.compile(regex, re.DOTALL)
     def decorator(func):
         def wrapper(parser, token):
             match = regex.match(token)
@@ -106,6 +106,30 @@ def for_macro(parser, name, expression):
     """A macro that implements a 'for' loop."""
     match, block = parser.parse_block("for", "endfor", RE_ENDFOR)
     return partial(for_node, Name(name), Expression(expression), block)
+
+
+def py_node(code, context):
+    """A node that allows arbitrary python to be executed."""
+    exec(code, context.meta, context.params)
+
+
+@regex_macro("^py\s(.+?)$")
+def py_macro(parser, code):
+    """Macro that allows arbitrary python to be executed."""
+    # Fix indentation in the code.
+    raw_lines = code.splitlines()
+    code_lines = []
+    while raw_lines:
+        raw_line = raw_lines.pop(0)
+        code_line = raw_line.lstrip()
+        if code_line:
+            indent = len(raw_line) - len(code_line)
+            code_lines.append(code_line)
+            break
+    for raw_line in raw_lines:
+        code_lines.append(raw_line[indent:])
+    # Compile the node renderer.
+    return partial(py_node, compile("\n".join(code_lines), "<string>", "exec"))
     
     
 def get_template(context, template):
@@ -203,4 +227,4 @@ def extends_macro(parser, expression):
 
 
 # The set of default macros.
-DEFAULT_MACROS = (set_macro, print_macro, import_macro, if_macro, for_macro, include_macro, block_macro, super_macro, extends_macro,)
+DEFAULT_MACROS = (set_macro, print_macro, import_macro, if_macro, for_macro, py_macro, include_macro, block_macro, super_macro, extends_macro,)

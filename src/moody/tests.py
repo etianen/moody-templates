@@ -66,6 +66,23 @@ class TestRender(unittest.TestCase):
         self.assertRaises(TemplateRenderError, lambda: template2.render(value=[["foo"]]))
         self.assertRaises(TemplateRenderError, lambda: template2.render(value=[["foo", "bar", "foobar"]]))
     
+    def testPyMacro(self):
+        template1 = moody.compile("""
+            {% py items = range(10) %}
+            {% for n in items %}{{n}}{% endfor %}
+        """)
+        self.assertEqual(template1.render().strip(), "0123456789")
+        template2 = moody.compile("""
+            {% py
+            
+                items = []
+                for n in range(10):
+                    items.append(n)
+            %}
+            {% for n in items %}{{n}}{% endfor %}
+        """)
+        self.assertEqual(template2.render().strip(), "0123456789")
+    
     def testIncludeMacro(self):
         template1 = moody.compile("Foo")
         template2 = moody.compile("{% include inner %}")
