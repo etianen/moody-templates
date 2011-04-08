@@ -9,12 +9,14 @@ class TestRender(unittest.TestCase):
     
     def testCommentTag(self):
         self.assertEqual(moody.render("{# A comment. #}"), "")
+        self.assertEqual(moody.render("{# Multi\nLine\nComment #}"), "")
         
     def testStringTag(self):
         self.assertEqual(moody.render("Hello world"), "Hello world")
         
     def testExpressionTag(self):
         self.assertEqual(moody.render("{{'Hello world'}}"), "Hello world")
+        self.assertEqual(moody.render("{{('Hello '\n'world')}}"), "Hello world")
     
     def testSetMacro(self):
         self.assertEqual(moody.render("{% set 'foo' as test %}{{test}}"), "foo")
