@@ -41,28 +41,32 @@ class ExpressionNode(Node):
         context.buffer.append(value)
 
 
-RE_TOKEN = re.compile("{#.+?#}|{{\s*(.*?)\s*}}|{%\s*(.*?)\s*%}")
+RE_TOKEN = re.compile("{#.+?#}|{{\s*(.*?)\s*}}|{%\s*(.*?)\s*%}", re.DOTALL)
 
 
 def tokenize(template):
     """Lexes the given template, returning an iterator or token."""
-    for lineno, line in enumerate(template.splitlines(True), 1):
-        index = 0
-        for match in RE_TOKEN.finditer(line):
-            # Process string tokens.
-            if match.start() > index:
-                yield lineno, "STRING", line[index:match.start()]
-            # Process tag tokens.
-            expression_token, macro_token = match.groups()
-            # Process expression tokens.
-            if expression_token:
-                yield lineno, "EXPRESSION", expression_token
-            elif macro_token:
-                yield lineno, "MACRO", macro_token
-            # Update the index.
-            index = match.end()
-        # Yield the final string token.
-        yield lineno, "STRING", line[index:]
+    lineno = 1
+    index = 0
+    for match in RE_TOKEN.finditer(template):
+        # Process string tokens.
+        if match.start() > index:
+            string_token = template[index:match.start()]
+            yield lineno, "STRING", string_token
+            lineno += string_token.count("\n")
+        # Process tag tokens.
+        expression_token, macro_token = match.groups()
+        # Process expression tokens.
+        if expression_token:
+            yield lineno, "EXPRESSION", expression_token
+            lineno += expression_token.count("\n")
+        elif macro_token:
+            yield lineno, "MACRO", macro_token
+            lineno += macro_token.count("\n")
+        # Update the index.
+        index = match.end()
+    # Yield the final string token.
+    yield lineno, "STRING", template[index:]
 
 
 class ParserRun:
