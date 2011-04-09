@@ -129,9 +129,18 @@ class ParserRun:
         return self.parse_template_chunk(end_chunk_handler)
 
 
+# Ported from python 3.2 html module. In future versions, we'll just use the builtin.
+_escape_map = {
+    ord("&"): "&amp;",
+    ord("<"): "&lt;",
+    ord(">"): "&gt;",
+    ord('"'): "&quot;",
+    ord("'"): "&#x27;",
+}
+
 def escape_html(value):
     """Replaces all HTML special characters with the appropriate entities."""
-    return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&#39;")
+    return value.translate(_escape_map)
 
 
 # Default rules for autoescaping templates based on name.
