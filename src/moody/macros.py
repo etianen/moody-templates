@@ -3,7 +3,6 @@
 import re
 from functools import partial
 
-import moody
 from moody.base import Expression, Name, Template
 
 
@@ -141,7 +140,9 @@ def get_template(context, template):
     if isinstance(template, Template):
         return template
     if isinstance(template, str):
-        loader = context.meta.get("__loader__", moody.default_loader)
+        loader = context.meta.get("__loader__")
+        if not loader:
+            raise ValueError("Cannot load {!r} by name, as this template was not compiled using a template loader.")
         return loader.load(template)
     raise TypeError("Expected a Template or a str, found {!r}.".format(template))
 

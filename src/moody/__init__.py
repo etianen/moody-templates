@@ -6,8 +6,6 @@ Fast and powerful. It gets the job done.
 Developed by Dave Hall <dave@etianen.com>.
 """
 
-import sys
-
 from moody.errors import TemplateError, TemplateCompileError, TemplateRenderError
 from moody.macros import DEFAULT_MACROS
 from moody.parser import Parser
@@ -44,6 +42,3 @@ def make_loader(*sources, loader_cls=Loader, parser=default_parser, **kwargs):
             raise TypeError("A source should be a str or a Source instance, not {!r}.".format(source))
     # Instantiate the loader.
     return loader_cls(source_objs, parser, **kwargs)
-    
-
-default_loader = make_loader(*sys.path)

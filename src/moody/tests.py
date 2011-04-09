@@ -1,4 +1,4 @@
-import unittest
+import unittest, sys
 
 import moody
 from moody.errors import TemplateRenderError, TemplateCompileError
@@ -203,8 +203,9 @@ class TestLoader(unittest.TestCase):
 class TestDirectorySource(unittest.TestCase):
     
     def testLoad(self):
+        loader = moody.make_loader(*sys.path)
         with open("src/moody/__init__.py", "r") as expected:
-            self.assertEqual(moody.default_loader.render("src/moody/__init__.py"), expected.read())
+            self.assertEqual(loader.render("src/moody/__init__.py"), expected.read())
 
 
 class TestErrorReporting(unittest.TestCase):
