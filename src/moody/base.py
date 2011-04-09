@@ -36,36 +36,24 @@ class Context:
         return "".join(self.buffer)
 
 
-RE_NAME = re.compile("^[a-zA-Z_][a-zA-Z_0-9]*$")        
+RE_NAME = re.compile("^[a-zA-Z_][a-zA-Z_0-9]*$")
 
-class Name:
 
-    """The parsed name of a template variable."""
-
-    __slots__ = ("names", "is_expandable",)
-
-    def __init__(self, name):
-        """Parses the name_string and initializes the Name."""
-        # Parse the names.
-        if "," in name:
-            self.names = [name.strip() for name in name.split(",")]
-            if not self.names[-1]:
-                self.names.pop()
-            self.is_expandable = True
-        else:
-            self.names = [name]
-            self.is_expandable = False
-        # Make sure that the names are valid.
-        for name in self.names:
-            if not RE_NAME.match(name):
-                raise ValueError("{!r} is not a valid variable name. Only letters, numbers and undescores are allowed.".format(name))
-
-    def set(self, context, value):
-        """Sets the value in the context under this name."""
-        if self.is_expandable:
+def name_setter(name):
+    """
+    Returns a function that will assign a value to a name in a given context.
+    
+    The returned function has a signature of set_name(context, value).
+    """
+    # Parse the names.
+    if "," in name:
+        names = [name.strip() for name in name.split(",")]
+        if not names[-1]:
+            names.pop()
+        def setter(context, value):
             # Handle variable expansion.
             value = iter(value)
-            for name_part in self.names:
+            for name_part in names:
                 try:
                     context.params[name_part] = next(value)
                 except StopIteration:
@@ -76,9 +64,17 @@ class Name:
             except StopIteration:
                 pass
             else:
-                raise ValueError("Need more that {} values to unpack.".format(len(self.names)))
-        else:
-            context.params[self.names[0]] = value
+                raise ValueError("Need more than {} values to unpack.".format(len(names)))
+    else:
+        names = (name,)
+        def setter(context, value):
+            context.params[name] = value
+    # Make sure that the names are valid.
+    for name in names:
+        if not RE_NAME.match(name):
+            raise ValueError("{!r} is not a valid variable name. Only letters, numbers and undescores are allowed.".format(name))
+    # Return the setter.
+    return setter
 
 
 class Expression:

@@ -3,7 +3,7 @@
 import re
 from functools import partial
 
-from moody.base import Expression, Name, Template
+from moody.base import Expression, name_setter, Template
 
 
 def regex_macro(regex):
@@ -19,15 +19,15 @@ def regex_macro(regex):
     return decorator
         
         
-def set_node(expression, name, context):
+def set_node(expression, set_name, context):
     """A node that sets a parameter in the context."""
-    name.set(context, expression.eval(context))
+    set_name(context, expression.eval(context))
         
 
 @regex_macro("^set\s+(.+?)\s+as\s+(.+?)$")
 def set_macro(parser, expression, name):
     """Macro that allows setting of a value in the context."""
-    return partial(set_node, Expression(expression), Name(name))
+    return partial(set_node, Expression(expression), name_setter(name))
 
 
 def print_node(expression, context):
@@ -90,11 +90,11 @@ def if_macro(parser, expression):
     return partial(if_node, clauses, else_block)
     
     
-def for_node(name, expression, block, context):
+def for_node(set_name, expression, block, context):
     """A node that implements a 'for' loop."""
     items = expression.eval(context)
     for item in items:
-        name.set(context, item)
+        set_name(context, item)
         block._render_to_context(context)
 
 
@@ -104,7 +104,7 @@ RE_ENDFOR = re.compile("^endfor$")
 def for_macro(parser, name, expression):
     """A macro that implements a 'for' loop."""
     match, block = parser.parse_block("for", "endfor", RE_ENDFOR)
-    return partial(for_node, Name(name), Expression(expression), block)
+    return partial(for_node, name_setter(name), Expression(expression), block)
 
 
 def py_node(code, context):
