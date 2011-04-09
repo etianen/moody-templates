@@ -3,7 +3,7 @@
 import re
 from functools import partial
 
-from moody.base import Expression, name_setter, Template
+from moody.base import expression_evaluator, name_setter, Template
 
 
 def regex_macro(regex):
@@ -19,26 +19,26 @@ def regex_macro(regex):
     return decorator
         
         
-def set_node(expression, set_name, context):
+def set_node(evaluate, set_name, context):
     """A node that sets a parameter in the context."""
-    set_name(context, expression.eval(context))
+    set_name(context, evaluate(context))
         
 
 @regex_macro("^set\s+(.+?)\s+as\s+(.+?)$")
 def set_macro(parser, expression, name):
     """Macro that allows setting of a value in the context."""
-    return partial(set_node, Expression(expression), name_setter(name))
+    return partial(set_node, expression_evaluator(expression), name_setter(name))
 
 
-def print_node(expression, context):
+def print_node(evaluate, context):
     """A node that renders an expression without autoescaping."""
-    context.buffer.append(str(expression.eval(context)))
+    context.buffer.append(str(evaluate(context)))
         
         
 @regex_macro("^print\s+(.+?)$")
 def print_macro(parser, expression):
     """Macro that allows an expression to be rendered without autoescaping."""
-    return partial(print_node, Expression(expression))
+    return partial(print_node, expression_evaluator(expression))
 
 
 def import_node(statement, context):
@@ -54,8 +54,8 @@ def import_macro(parser, statement):
 
 def if_node(clauses, else_block, context):
     """A node that implements an 'if' expression."""
-    for expression, block in clauses:
-        if expression.eval(context):
+    for evaluate, block in clauses:
+        if evaluate(context):
             block._render_to_context(context)
             return
     if else_block:
@@ -75,7 +75,7 @@ def if_macro(parser, expression):
         if else_tag:
             else_block = block
         else:
-            clauses.append((Expression(expression), block))
+            clauses.append((expression_evaluator(expression), block))
         elif_flag, elif_expression, else_flag, endif_flag = match.groups()
         if elif_flag:
             if else_tag:
@@ -90,9 +90,9 @@ def if_macro(parser, expression):
     return partial(if_node, clauses, else_block)
     
     
-def for_node(set_name, expression, block, context):
+def for_node(set_name, evaluate, block, context):
     """A node that implements a 'for' loop."""
-    items = expression.eval(context)
+    items = evaluate(context)
     for item in items:
         set_name(context, item)
         block._render_to_context(context)
@@ -104,7 +104,7 @@ RE_ENDFOR = re.compile("^endfor$")
 def for_macro(parser, name, expression):
     """A macro that implements a 'for' loop."""
     match, block = parser.parse_block("for", "endfor", RE_ENDFOR)
-    return partial(for_node, name_setter(name), Expression(expression), block)
+    return partial(for_node, name_setter(name), expression_evaluator(expression), block)
 
 
 def py_node(code, context):
@@ -147,16 +147,16 @@ def get_template(context, template):
     raise TypeError("Expected a Template or a str, found {!r}.".format(template))
 
 
-def include_node(expression, context):
+def include_node(evaluate, context):
     """A node that implements an 'include' expression."""
-    template = get_template(context, expression.eval(context))
+    template = get_template(context, evaluate(context))
     template._render_to_sub_context(context, {})
 
 
 @regex_macro("^include\s+(.+?)$")
 def include_macro(parser, expression):
     """Macro that implements an 'include' expression."""
-    return partial(include_node, Expression(expression))
+    return partial(include_node, expression_evaluator(expression))
 
 
 def block_node(name, block, context):
@@ -208,12 +208,12 @@ def super_macro(parser):
     return super_node
 
 
-def extends_node(expression, block_nodes, context):
+def extends_node(evaluate, block_nodes, context):
     """Implements a inherited child template."""
     # Create a summary of my blocks.
     context.meta["__blocks__"] =  block_nodes
     # Render the parent template with my blocks.
-    template = get_template(context, expression.eval(context))
+    template = get_template(context, evaluate(context))
     template._render_to_sub_context(context, {"__child__": context})
 
 
@@ -224,7 +224,7 @@ def extends_macro(parser, expression):
     nodes = parser.parse_all_nodes()
     # Go through the nodes, looking for all block tags.
     block_nodes = parser.meta.get("__blocks__") or parser.meta.setdefault("__blocks__", {})
-    return partial(extends_node, Expression(expression), block_nodes)
+    return partial(extends_node, expression_evaluator(expression), block_nodes)
 
 
 # The set of default macros.

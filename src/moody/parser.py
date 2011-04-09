@@ -4,7 +4,7 @@ import os, re
 from functools import partial
 
 from moody.errors import TemplateCompileError
-from moody.base import Expression, Template, TemplateFragment
+from moody.base import expression_evaluator, Template, TemplateFragment
 from moody.macros import DEFAULT_MACROS
         
         
@@ -13,9 +13,9 @@ def string_node(value, context):
     context.buffer.append(value)
 
 
-def expression_node(expression, context):
+def expression_node(evaluate, context):
     """A node that evaluates and prints the given expression."""
-    value = str(expression.eval(context))
+    value = str(evaluate(context))
     # Apply autoescaping.
     autoescape = context.meta.get("__autoescape__")
     if autoescape:
@@ -81,7 +81,7 @@ class ParserRun:
                 if token_type == "STRING":
                     node = partial(string_node, token_contents)
                 elif token_type == "EXPRESSION":
-                    node = partial(expression_node, Expression(token_contents))
+                    node = partial(expression_node, expression_evaluator(token_contents))
                 elif token_type == "MACRO":
                     # Process macros.
                     node = None

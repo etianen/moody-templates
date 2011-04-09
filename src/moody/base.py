@@ -75,21 +75,13 @@ def name_setter(name):
             raise ValueError("{!r} is not a valid variable name. Only letters, numbers and undescores are allowed.".format(name))
     # Return the setter.
     return setter
-
-
-class Expression:
-
-    """A compiled template expression."""
-
-    __slots__ = ("compiled_expression",)
-
-    def __init__(self, expression):
-        """Initiliazes the Expression."""
-        self.compiled_expression = compile(expression, "<string>", "eval")
-
-    def eval(self, context):
-        """Evaluates the expression using the given context, returning the result."""
-        return eval(self.compiled_expression, context.meta, context.params)
+        
+        
+def expression_evaluator(expression):
+    expression = compile(expression, "<string>", "eval")
+    def evaluator(context):
+        return eval(expression, context.meta, context.params)
+    return evaluator
 
 
 class TemplateFragment:
