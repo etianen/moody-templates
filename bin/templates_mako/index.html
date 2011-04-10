@@ -1,0 +1,17 @@
+<%inherit file="base.html"/>
+
+
+<%block name="title">Hello world</%block>
+
+
+<%block name="header">Hello world</%block>
+
+
+% if list_items:
+    <h2>Here is a list</h2>
+    <ul>
+        % for item in list_items:
+            <li>${item | h}</li>
+        % endfor
+    </ul>
+% endif
