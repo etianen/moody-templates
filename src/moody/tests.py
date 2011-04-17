@@ -205,7 +205,7 @@ class TestDirectorySource(unittest.TestCase):
     def testLoad(self):
         loader = moody.make_loader(*sys.path)
         with open(moody.__file__, "r") as expected:
-            self.assertEqual(loader.render(moody.__file__), expected.read())
+            self.assertEqual(loader.render("moody/__init__.py"), expected.read())
 
 
 class TestErrorReporting(unittest.TestCase):
