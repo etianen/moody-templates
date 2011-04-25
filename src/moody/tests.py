@@ -111,6 +111,16 @@ class TestRender(unittest.TestCase):
         self.assertEqual(template1.render(test="foobar").strip(), "foobar")
         self.assertEqual(template1.render(test="foo").strip(), "foofoo")
         self.assertEqual(template1.render(test="").strip(), "snafu")
+    
+    def testLineMacros(self):
+        template = moody.compile("""
+            %% if test.startswith("foo")
+                {% if test.endswith("bar") %}{{test}}{% endif %}
+            %% endif
+        """)
+        self.assertEqual(template.render(test="foobar"), """
+                foobar
+        """)
         
     def testAutoescape(self):
         template1 = moody.compile("{{value}}{% print value %}", name="test.html")

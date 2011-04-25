@@ -24,7 +24,7 @@ def expression_node(evaluate, context):
     context.buffer.append(value)
 
 
-RE_TOKEN = re.compile("{#.+?#}|{{\s*(.*?)\s*}}|{%\s*(.*?)\s*%}", re.DOTALL)
+RE_TOKEN = re.compile(r"{#.+?#}|{{\s*(.*?)\s*}}|{%\s*(.*?)\s*%}|\n[ \t]*%%[ \t]*([^\n]+)[ \t]*", re.DOTALL)
 
 
 def tokenize(template):
@@ -38,7 +38,7 @@ def tokenize(template):
             yield lineno, "STRING", string_token
             lineno += string_token.count("\n")
         # Process tag tokens.
-        expression_token, macro_token = match.groups()
+        expression_token, macro_token, line_macro_token = match.groups()
         # Process expression tokens.
         if expression_token:
             yield lineno, "EXPRESSION", expression_token
@@ -46,6 +46,9 @@ def tokenize(template):
         elif macro_token:
             yield lineno, "MACRO", macro_token
             lineno += macro_token.count("\n")
+        elif line_macro_token:
+            yield lineno, "MACRO", line_macro_token
+            lineno += 1
         # Update the index.
         index = match.end()
     # Yield the final string token.
