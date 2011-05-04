@@ -13,6 +13,7 @@ setup(
     author="Dave Hall",
     author_email="dave@etianen.com",
     url="http://github.com/etianen/moody-templates",
+    download_url="http://github.com/downloads/etianen/moody-templates/moody-templates-0.9.tar.gz",
     packages=find_packages("src"),
     package_dir={"": "src"},
     test_suite="moody.tests",
@@ -20,6 +21,6 @@ setup(
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
         "Operating System :: OS Independent",
-        "Programming Language :: Python",
+        "Programming Language :: Python :: 3",
     ]
 )

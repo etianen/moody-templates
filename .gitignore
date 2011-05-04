@@ -10,3 +10,4 @@ Thumbs.db
 *.egg
 *.tar.gz
 src/moody_templates.egg-info/
+MANIFEST
