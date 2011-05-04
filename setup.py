@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+import sys, os.path
+sys.path.append(os.path.dirname(__file__))
+
 from distribute_setup import use_setuptools
 use_setuptools()
 
