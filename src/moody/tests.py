@@ -122,6 +122,17 @@ class TestRender(unittest.TestCase):
                 foobar
         """)
         
+    def testLineComments(self):
+        template = moody.compile("""
+            %% if test.startswith("foo")
+                ## This comment should be ignored.
+                {% if test.endswith("bar") %}{{test}}{% endif %}
+            %% endif
+        """)
+        self.assertEqual(template.render(test="foobar"), """
+                foobar
+        """)
+        
     def testAutoescape(self):
         template1 = moody.compile("{{value}}{% print value %}", name="test.html")
         self.assertEqual(template1.render(value="<foo bar='bar' baz=\"baz\">"), "&lt;foo bar=&#x27;bar&#x27; baz=&quot;baz&quot;&gt;<foo bar='bar' baz=\"baz\">")

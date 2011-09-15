@@ -24,7 +24,7 @@ def expression_node(evaluate, context):
     context.buffer.append(value)
 
 
-RE_TOKEN = re.compile(r"{#.+?#}|{{\s*(.*?)\s*}}|{%\s*(.*?)\s*%}|\n[ \t]*%%[ \t]*([^\n]+)[ \t]*", re.DOTALL)
+RE_TOKEN = re.compile(r"{#.+?#}|{{\s*(.*?)\s*}}|{%\s*(.*?)\s*%}|\n[ \t]*%%[ \t]*([^\n]+)[ \t]*|\n[ \t]*##[ \t]*[^\n]+[ \t]*", re.DOTALL)
 
 
 def tokenize(template):
