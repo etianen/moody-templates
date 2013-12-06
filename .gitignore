@@ -12,3 +12,5 @@ Thumbs.db
 src/moody_templates.egg-info/
 MANIFEST
 dist
+build
+venv
