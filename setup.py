@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="moody-templates",
-    version="0.9",
+    version="0.9.1",
     description="",
     author="Dave Hall",
     author_email="dave@etianen.com",
