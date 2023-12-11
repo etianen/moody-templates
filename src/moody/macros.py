@@ -195,7 +195,7 @@ def super_node(context):
         block_stack = context.meta["__parent_blocks__"][:]
         try:
             block_context, block = block_stack.pop()
-        except Indexerror:
+        except IndexError:
             pass
         else:
             sub_context = block_context.sub_context(meta={"__parent_blocks__": block_stack})
